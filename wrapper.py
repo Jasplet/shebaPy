@@ -11,59 +11,29 @@ class Interface:
     The "subprocess" sheba will be a bound method
     """
     def __init__(self,st):
-        self.ch = 'H'
-        for i in [0,1,2]:
-            st[i].stats.sac.kstnm = '{:>8}'.format(st[i].stats.sac.kstnm)
-#          Formats Station name in headers so that it is 8 characters long, with emtpy character fill with whitespaces
-        try:
-            self.horz1 = st.select(channel='BHE')
-            self.horz1[0].stats.sac.cmpinc = 90
-            self.horz1[0].stats.sac.cmpaz = 90
-            self.horz2 = st.select(channel='BHN')
-            self.horz2[0].stats.sac.cmpinc = 90
-            self.horz2[0].stats.sac.cmpaz = 0
-            self.vert = st.select(channel='BHZ')
-            self.vert[0].stats.sac.cmpinc = 0
-            self.vert[0].stats.sac.cmpaz = 0
-
-        except IndexError:
-            try:
-                print('BH? channels not found, trying BX?')
-                self.horz1 = st.select(channel='BXE')
-                self.horz1[0].stats.sac.cmpinc = 90
-                self.horz1[0].stats.sac.cmpaz = 90
-                self.horz2 = st.select(channel='BXN')
-                self.horz2[0].stats.sac.cmpinc = 90
-                self.horz2[0].stats.sac.cmpaz = 0
-                self.vert = st.select(channel='BXZ')
-                self.vert[0].stats.sac.cmpinc = 0
-                self.vert[0].stats.sac.cmpaz = 0
-                self.ch = 'X'
-            except IndexError:
-                    print('Channel selection failed, indexing instead')
-                    self.horz1 = st[0]
-                    self.horz1.stats.sac.cmpinc = 90
-                    self.horz1.stats.sac.cmpaz = 90
-                    self.horz2 = st[1]
-                    self.horz2.stats.sac.cmpinc = 90
-                    self.horz2.stats.sac.cmpaz = 0
-                    self.vert = st[2]
-                    self.vert.stats.sac.cmpinc = 0
-                    self.vert.stats.sac.cmpaz = 0
-#       Test to see if the sac files have predefined window ranges in the User0-3 slots       
-        if all (k in self.horz1[0].stats.sac for k in ('user0','user1','user2','user3')):
-            print('Pre-defined window ranges found')
-        else:
-            print('Window ranges incomplete, setting dummys in SAC headers')
-            keychain = {'user0':0,'user1':1,'user2':2,'user3':3}
-            self.horz1[0].stats.sac.update(keychain)
-            self.horz2[0].stats.sac.update(keychain)
-            self.vert[0].stats.sac.update(keychain)
+        
+        self.st = st
+        for trace in self.st
+            trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
+#          Formats Station name in headers so that it is 8 characters long, with emtpy character fill with whitespaces    
+            check_evdp(trace)
+                
         self.gcarc = st[0].stats.sac.gcarc # source-reciever great circle distance [deg]
         self.station = st[0].stats.station # station code 
         self.delta = st[0].stats.delta # sample rate of seismometer [s]
         self.bad = False
-
+        
+    def check_evdp(self, trace):
+        '''
+        Tests the event depths 
+        '''
+        evdp = trace.stats.sac.evdp
+        if trace.stats.sac.evdp >= 1000:
+            raise Warning('Event depth is greater than 1000km! EVDP may be in meters')
+            trace.stats.sac({'evdp':evdp/1000})
+        elif trace.stats.sac.evdp == 0:
+            raise ValueError('Event depth is 0km!')
+        
     def model_traveltimes(self,phase):
         """
         Function to run TauP traveltime models for the SKS phase.
@@ -71,31 +41,21 @@ class Interface:
         tr - trace object for which SKS arrival time will be predicted
         """
         model = ob.taup.tau.TauPyModel(model="iasp91")
+        tt = model.get_travel_times((self.horz1[0].stats.sac.evdp),
+                                     self.horz1[0].stats.sac.gcarc,
+                                     [phase])
+        try:
+            traveltime = tt[0].time
+        except IndexError:
+            print('index Error')
+            traveltime = None
 
-        # Add in a test for the case where depth has been given in meters 
-        if self.horz2[0].stats.sac.evdp >= 1000:
-            #This might be a bit generous but my events shouldnt be shallower the ~ 1 km or deeper than 1000km anyway (and if this is the case than there is something SERIOUSLY wrong with our earth models)
-            traveltime = model.get_travel_times((self.horz2[0].stats.sac.evdp/1000),self.horz2[0].stats.sac.gcarc,[phase])[0].time
-            print(traveltime)
-        elif self.horz2[0].stats.sac.evdp == 0: # Theres an event where the event data couldnt be found so evdp was set to be 0
-            # Having a depth of zero will give us problems so NOW change it to 10.0km exactly (these traveltimes could be very dodgy)
-            err_out = open('/Users/ja17375/DiscrePy/Sheba/Events_with_evdp_of_0.txt','w+')
-            err_out.write('Station: {}, has event starting at {} with an evdp of 0!\n'.format(self.station,self.horz2[0].stats.starttime))
-            traveltime = model.get_travel_times(10,self.horz2[0].stats.sac.gcarc,[phase])[0].time
-        else:
-            tt = model.get_travel_times((self.horz2[0].stats.sac.evdp),self.horz2[0].stats.sac.gcarc,[phase])
-            try:
-                traveltime = tt[0].time
-            except IndexError:
-                print('index Error')
-                traveltime = None
-
-        evt_time = obspy.UTCDateTime(year = self.horz2[0].stats.sac.nzyear,
-                                     julday = self.horz2[0].stats.sac.nzjday,
-                                     hour=self.horz2[0].stats.sac.nzhour,
-                                     minute=self.horz2[0].stats.sac.nzmin,
-                                     second=self.horz2[0].stats.sac.nzsec,
-                                     microsecond=self.horz2[0].stats.sac.nzmsec)
+        evt_time = obspy.UTCDateTime(year = self.horz1[0].stats.sac.nzyear,
+                                     julday = self.horz1[0].stats.sac.nzjday,
+                                     hour=self.horz1[0].stats.sac.nzhour,
+                                     minute=self.horz1[0].stats.sac.nzmin,
+                                     second=self.horz1[0].stats.sac.nzsec,
+                                     microsecond=self.horz1[0].stats.sac.nzmsec)
         self.tt = evt_time + traveltime
         self.tt_rel = traveltime
         return traveltime
@@ -126,6 +86,17 @@ class Interface:
             print('Phase {} not SKS or SKKS'.format(phase_to_check))
             return False
 
+    def initialise_windows(self):
+        if all (k in self.horz1[0].stats.sac for k in ('user0','user1','user2','user3')):
+            print('Pre-defined window ranges found')
+        else:
+            user0 = self.tt_rel - 15 # 15 seconds before arrival
+            user1 = self.tt_rel # t predicted arrival
+#           Set the range of window endtime (user2/user3)
+            user2 = self.tt_rel + 15 # 15 seconds after, gives a min window size of 20 seconds
+            user3 = self.tt_rel + 30 # 30 seconds after, gives a max window size of 45 seconds
+            keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
+
     def process(self,synth=False,c1=0.01,c2=0.5,window=False):
         """
         Function to bandpass filter and trim the components
@@ -135,38 +106,28 @@ class Interface:
         By default traces will be filtered between 0.01Hz-0.5Hz.
         Using an upper corner of 0.1Hz for SKS/SKKS is also common, but can cut out high f signal (but also reduces noise)
         """
-      # De-mean and detrend each component
-        self.horz2.detrend(type='demean') #demeans the component
-        self.horz1.detrend(type='demean')
-        self.vert.detrend(type='demean')
+        for trace in self.st:
+#       De-mean and detrend each component
+            trace.detrend(type='demean') #demeans the component
 #       Detrend
-        self.horz2.detrend(type='simple') #De-trends component
-        self.horz1.detrend(type='simple') #De-trends component
-        self.vert.detrend(type='simple') #De-trends component
+            trace.detrend(type='simple') #De-trends component
 #       Filter each component. Bandpass flag gives a bandpass-butterworth filter
-        self.horz2.filter("bandpass",freqmin= c1, freqmax= c2,corners=2,zerophase=True)
-        self.horz1.filter("bandpass",freqmin= c1, freqmax= c2,corners=2,zerophase=True)
-        self.vert.filter("bandpass",freqmin= c1, freqmax= c2,corners=2,zerophase=True)
+            trace.filter("bandpass",freqmin= c1, freqmax= c2,corners=2,zerophase=True)
 #       Now trim each component to the input length
-
-        if synth == False: # We only need to trim and set the window length for real data, not synthetics made with sacsplitwave
+#       We only need to trim and set the window length for real data, not synthetics made with sacsplitwave
+        if synth == False: 
 #       Now set the trim
             print('Trim Traces')
             t1 = (self.tt - 60) #I.e A minute before the arrival
             t2 = (self.tt+ 120) #I.e Two minutes after the arrival
-            self.horz2.trim(t1,t2)
-            self.horz1.trim(t1,t2)
-            self.vert.trim(t1,t2)
+            trace.trim(t1,t2)
+            
+            
     #       Add windowing ranges to sac headers user0,user1,user2,user3 [start1,start2,end1,end2]
-            if self.horz2[0].stats.sac.user0 == 0:
-                print("Setting Window start/end ranges")
+            if trace.stats.sac.user0 == 0:
+                print("Set default Window start/end ranges")
                 # Set the range of window starttime (user0/user1)
-                user0 = self.tt_rel - 15 # 15 seconds before arrival
-                user1 = self.tt_rel # t predicted arrival
-        #       Set the raqnge of window endtime (user2/user3)
-                user2 = self.tt_rel + 15 # 15 seconds after, gives a min window size of 20 seconds
-                user3 = self.tt_rel + 30 # 30 seconds after, gives a max window size of 45 seconds
-                keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
+
                 self.horz1[0].stats.sac.update(keychain)
                 self.horz2[0].stats.sac.update(keychain)
                 self.vert[0].stats.sac.update(keychain)
