@@ -5,6 +5,16 @@ Created on Tue Aug 17 12:13:24 2021
 
 @author: ja17375
 """
+
+import os
+import obspy
+from obspy.taup import TauPyModel
+from windower import WindowPicker
+import subprocess as sub
+from multiprocessing import current_process
+from subprocess import CalledProcessError
+
+
 class Interface:
     """
     Class which will act as the interface to sheba.
@@ -13,15 +23,14 @@ class Interface:
     def __init__(self,st):
         
         self.st = st
-        for trace in self.st
+        for trace in self.st:
             trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
 #          Formats Station name in headers so that it is 8 characters long, with emtpy character fill with whitespaces    
-            check_evdp(trace)
+            self.check_evdp(trace)
                 
         self.gcarc = st[0].stats.sac.gcarc # source-reciever great circle distance [deg]
         self.station = st[0].stats.station # station code 
         self.delta = st[0].stats.delta # sample rate of seismometer [s]
-        self.bad = False
         
     def check_evdp(self, trace):
         '''
@@ -40,7 +49,7 @@ class Interface:
         Returns SKS predictided arrivals (seconds), origin time of the event (t0) as a UTCDateTime obejct and the SKS arrival as a UTCDateTime object
         tr - trace object for which SKS arrival time will be predicted
         """
-        model = ob.taup.tau.TauPyModel(model="iasp91")
+        model = TauPyModel(model="iasp91")
         tt = model.get_travel_times((self.horz1[0].stats.sac.evdp),
                                      self.horz1[0].stats.sac.gcarc,
                                      [phase])
@@ -65,26 +74,16 @@ class Interface:
         Function to test if the given phase is actually measureable!
         """
         if phase_to_check == 'SKS':
-            if self.gcarc < 145.0:
-                return True
-            else:
-                print('Event-Station distance further than 145 deg, too far for SKS')
-                return False
-
+            if self.gcarc > 145.0:
+                raise ValueError('Event-Station distance is greater than 145, SKS not visible/reliable.')
         elif phase_to_check == 'SKKS':
-            if self.gcarc >= 105.0:
-                return True
-            else:
-                print('Event-Station distance less than 105 deg, too short for SKKS')
-                return False
+            if (self.gcarc < 105.0) or (self.gcarc > 145.0) :
+                raise ValueError('Event-Station distance outside of acceptable range of 105-145 for SKKS')
         elif phase_to_check == 'ScS':
-            if self.gcarc <= 95.0:
-                return True
-            else:
-                print('Event-Station distance greater than 105 deg, too far for ScS')
+            if self.gcarc > 95.0:
+                raise ValueError('Event-Station distance greatr than acceptable distance of 95 deg for ScS')
         else:
-            print('Phase {} not SKS or SKKS'.format(phase_to_check))
-            return False
+            print('Phase {} not ScS, SKS or SKKS. Not checking!'.format(phase_to_check))
 
     def initialise_windows(self, trace):
         if all (k in trace.stats.sac for k in ('user0','user1','user2','user3')):
@@ -98,7 +97,7 @@ class Interface:
             keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
             trace.stats.sac.update(keychain)
 
-    def preprocess(self,synth=False,c1=0.01,c2=0.5,window=False):
+    def preprocess(self,synth=False,c1=0.01,c2=0.5):
         """
         Function to bandpass filter and trim the components
         Seismograms are trimmed so that they start 1 minute before the expected arrival and end 2 minutes after the arrival
@@ -123,56 +122,39 @@ class Interface:
                 trace.trim(t1,t2)
 #               Initialise Windows        
                 self.initialise_windows(trace)
-#               Add windowing ranges to sac headers user0,user1,user2,user3 [start1,start2,end1,end2]
-
-        else:
-            pass
 
     def window_event(self):
         '''Function that enables manual picking of window start/end ranges'''
-        if window == True:
-            # Windowing code
-            st = self.horz1 + self.horz2
-            Windower = WindowPicker(st,user0,user1,user2,user3,self.tt_rel)
-            if Windower.wbeg1 is None:
-                print("Skipping")
-                self.bad = True # Switch to tell sheba.py if we actually want to meausre this event
-            else:
-                print("Windower Closed, adjusting window ranges")
-                (user0,user1,user2,user3) = Windower.wbeg1, Windower.wbeg2, Windower.wend1, Windower.wend2
-                self.bad = False
-            # Set window ranges in SAC headers
-            self.horz2[0].stats.sac.user0,self.horz2[0].stats.sac.user1,self.horz2[0].stats.sac.user2,self.horz2[0].stats.sac.user3 = (user0,user1,user2,user3)
-            self.horz1[0].stats.sac.user0,self.horz1[0].stats.sac.user1,self.horz1[0].stats.sac.user2,self.horz1[0].stats.sac.user3 = (user0,user1,user2,user3)
-            self.vert[0].stats.sac.user0,self.vert[0].stats.sac.user1,self.vert[0].stats.sac.user2,self.vert[0].stats.sac.user3 = (user0,user1,user2,user3)
-
-    def write_out(self,phase,label,path=None,synth=False):
+        # Windowing code
+        st = self.horz1 + self.horz2
+        Windower = WindowPicker(st,
+                                self.st[0].stats.sac['user0'], self.st[0].stats.sac['user1'],
+                                self.st[0].stats.sac['user2'], self.st[0].stats.sac['user3'],
+                                self.tt_rel)
+        if Windower.wbeg1 is None:
+            print("Skipping")
+            return False
+        else:
+            print("Windower Closed, adjusting window ranges")
+            windows = {'user0' : Windower.wbeg1, 'user1' : Windower.wbeg2,
+                      'user2' : Windower.wend1, 'user3' : Windower.wend2}
+            [trace.stats.sac.update(windows) for trace in self.st]
+            return True
+      
+    def write_out(self,phase,label,path=None):
         """
         Function to write the component seismograms to SAC files within the sheba directory structure so Sheba can access them
         station [str] - station code
         phase [str] - phase code for which seismic phase splitting is being meausured
-        i [int] - counter for nukber of events (with the desired phase) at the station
         path [str] - path that you want the seismogrmas saved to.
         """
-        if path is not None:
-            self.horz2.write('{}/{}{}.BHN'.format(path,label,phase,self.ch),format='SAC',byteorder=1)
-            self.horz1.write('{}/{}{}.BHE'.format(path,label,phase,self.ch),format='SAC',byteorder=1)
-            self.vert.write('{}/{}{}.BHZ'.format(path,label,phase,self.ch),format='SAC',byteorder=1)
-        elif synth == True:
-            self.horz2.write('{}/{}SYNTH.BHN'.format(path,label,self.ch),format='SAC',byteorder=1)
-            self.horz1.write('{}/{}SYNTH.BHE'.format(path,label,self.ch),format='SAC',byteorder=1)
-            self.vert.write('{}/{}SYNTH.BHZ'.format(path,label,self.ch),format='SAC',byteorder=1)
-        else:
-            self.horz2.write('{}.BHN'.format(label,self.ch),format='SAC',byteorder=1)
-            self.horz1.write('{}.BHE'.format(label,self.ch),format='SAC',byteorder=1)
-            self.vert.write('{}.BHZ'.format(label,self.ch),format='SAC',byteorder=1)
-
-    def plot_comp(self):
-        """
-        Quick Function to plot component together on one seismogram
-        """
-        st = self.horz2 + self.horz1 + self.vert
-        st.plot(type='relative')
+        for trace in self.st:
+            ch = trace.stats.channel
+            if path is None:
+                print(f'Writing out to CWD: {path}')
+                path = os.get_cwd()
+                
+            trace.write(f'{path}/{label}{phase}.{ch}', format='SAC', byteorder=1)
 
     def gen_infile(self,path,label,phase,nwind=10,tlag_max=4.0):
     
@@ -181,9 +163,8 @@ class Interface:
         with open('sheba.in','w') as writer:
             writer.write('SHEBA.IN \n')
             writer.write('{}{} \n'.format(label,phase)) # write file prefix
-            writer.write('{} \n'.format(self.horz1[0].stats.channel)) # Write channels for each component (E, N, Z order)
-            writer.write('{} \n'.format(self.horz2[0].stats.channel))
-            writer.write('{} \n'.format(self.vert[0].stats.channel))
+            for trace in self.st:
+                writer.write('{} \n'.format(trace.stats.channel)) # Write channels for each component (E, N, Z order)
             writer.write('1 \n') # Specifies Eigenvalue minimisation, replace with spol if transverse minimisation is desired (not supported here)
             writer.write('{:i} {:i} \n'.format(nwind,nwind))
             writer.write('{} \n'.format(tlag_max)) # sets max tlag in gridsearch
@@ -195,7 +176,7 @@ class Interface:
         """
         The big one! This function uses the subprocess module to host sac and then runs sheba as a SAC macro
         """
-        print('Worker {} Passing {} into Sheba for {}. Time is {}'.format(current_process().pid,label,phase,time.ctime()))
+        print(f'Worker {current_process()} Passing {label} into Sheba for.')
         p = sub.Popen(['sac'],
                      stdout = sub.PIPE,
                      stdin  = sub.PIPE,
@@ -207,7 +188,6 @@ class Interface:
 #       SETMACRO makes sure SAC can find sheba (avoids pathing problems)
 #       m sheba calls sheba as a SAC macro
         if nwind == True:
-
             s = '''
             echo on\n
             SETMACRO /Users/ja17375/Ext_programs/macros
@@ -219,9 +199,8 @@ class Interface:
             SETMACRO /Users/ja17375/Ext_programs/macros
             m sheba file {}{} plot yes pick yes batch yes
             '''.format(label,phase)
-        try:
-            # print(s)
-            out = p.communicate(s)
+        try:           
+            _ = p.communicate(s)
             # print(out[0])
         except CalledProcessError as err:
             print(err)
