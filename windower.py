@@ -29,8 +29,8 @@ class WindowPicker:
         # self.plot_fft()
         self.canvas = fig.canvas
         # Add seismograms
-        self.ax1.plot(self.t, self.st[0].data,label='BHN', color='darkorange')
-        self.ax1.plot(self.t, self.st[1].data,label='BHE', color='dodgerblue')
+        self.ax1.plot(self.t, self.st[0].data,label=st[0].stats.channel, color='darkorange')
+        self.ax1.plot(self.t, self.st[1].data,label=st[1].stats.channel, color='dodgerblue')
         self.ax1.set_xlabel('Time relative to origin (s)')
         # Add legend
         self.ax1.legend()
@@ -77,9 +77,6 @@ class WindowPicker:
         # Take the fft
         fft_h1 = fft(horz1.data)
         fft_h2 = fft(horz2.data)
-        # print(N//2)
-        # print(BHN_f[1:N//2].shape)
-        # print(xf[1:N//2].shape)
         #Now plot the spectra
         self.ax2.semilogy(xf[1:N//2], 2.0/N * np.abs(fft_h1[1:N//2]), color='darkorange')
         self.ax2.semilogy(xf[1:N//2], 2.0/N * np.abs(fft_h2[1:N//2]), color='dodgerblue')
