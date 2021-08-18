@@ -86,8 +86,8 @@ class Interface:
             print('Phase {} not SKS or SKKS'.format(phase_to_check))
             return False
 
-    def initialise_windows(self):
-        if all (k in self.horz1[0].stats.sac for k in ('user0','user1','user2','user3')):
+    def initialise_windows(self, trace):
+        if all (k in trace.stats.sac for k in ('user0','user1','user2','user3')):
             print('Pre-defined window ranges found')
         else:
             user0 = self.tt_rel - 15 # 15 seconds before arrival
@@ -96,8 +96,9 @@ class Interface:
             user2 = self.tt_rel + 15 # 15 seconds after, gives a min window size of 20 seconds
             user3 = self.tt_rel + 30 # 30 seconds after, gives a max window size of 45 seconds
             keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
+            trace.stats.sac.update(keychain)
 
-    def process(self,synth=False,c1=0.01,c2=0.5,window=False):
+    def preprocess(self,synth=False,c1=0.01,c2=0.5,window=False):
         """
         Function to bandpass filter and trim the components
         Seismograms are trimmed so that they start 1 minute before the expected arrival and end 2 minutes after the arrival
@@ -109,55 +110,41 @@ class Interface:
         for trace in self.st:
 #       De-mean and detrend each component
             trace.detrend(type='demean') #demeans the component
-#       Detrend
             trace.detrend(type='simple') #De-trends component
 #       Filter each component. Bandpass flag gives a bandpass-butterworth filter
             trace.filter("bandpass",freqmin= c1, freqmax= c2,corners=2,zerophase=True)
 #       Now trim each component to the input length
 #       We only need to trim and set the window length for real data, not synthetics made with sacsplitwave
-        if synth == False: 
-#       Now set the trim
-            print('Trim Traces')
-            t1 = (self.tt - 60) #I.e A minute before the arrival
-            t2 = (self.tt+ 120) #I.e Two minutes after the arrival
-            trace.trim(t1,t2)
-            
-            
-    #       Add windowing ranges to sac headers user0,user1,user2,user3 [start1,start2,end1,end2]
-            if trace.stats.sac.user0 == 0:
-                print("Set default Window start/end ranges")
-                # Set the range of window starttime (user0/user1)
+            if synth == False: 
+#               Now set the trim
+                print('Trim Traces')
+                t1 = (self.tt - 60) #I.e A minute before the arrival
+                t2 = (self.tt+ 120) #I.e Two minutes after the arrival
+                trace.trim(t1,t2)
+#               Initialise Windows        
+                self.initialise_windows(trace)
+#               Add windowing ranges to sac headers user0,user1,user2,user3 [start1,start2,end1,end2]
 
-                self.horz1[0].stats.sac.update(keychain)
-                self.horz2[0].stats.sac.update(keychain)
-                self.vert[0].stats.sac.update(keychain)
-            else:
-                print("Windows already set, user0-3 already set")
-                print("User0 = ", self.horz2[0].stats.sac.user0)
-                print("User1 = ",self.horz2[0].stats.sac.user1)
-                print("User2 = ",self.horz2[0].stats.sac.user2)
-                print("User3 = ",self.horz2[0].stats.sac.user3)
-
-            if window == True:
-                # Windowing code
-                # Combine BHN and BHE to make a stream
-                st = self.horz1 + self.horz2
-                # print(user0,user1,user2,user3)
-                Windower = WindowPicker(st,user0,user1,user2,user3,self.tt_rel)
-                # Windower.pick()
-                if Windower.wbeg1 is None:
-                    print("Skipping")
-                    self.bad = True # Switch to tell sheba.py if we actually want to meausre this event
-                else:
-                    print("Windower Closed, adjusting window ranges")
-                    (user0,user1,user2,user3) = Windower.wbeg1, Windower.wbeg2, Windower.wend1, Windower.wend2
-                    self.bad = False
-                # Set window ranges in SAC headers
-                self.horz2[0].stats.sac.user0,self.horz2[0].stats.sac.user1,self.horz2[0].stats.sac.user2,self.horz2[0].stats.sac.user3 = (user0,user1,user2,user3)
-                self.horz1[0].stats.sac.user0,self.horz1[0].stats.sac.user1,self.horz1[0].stats.sac.user2,self.horz1[0].stats.sac.user3 = (user0,user1,user2,user3)
-                self.vert[0].stats.sac.user0,self.vert[0].stats.sac.user1,self.vert[0].stats.sac.user2,self.vert[0].stats.sac.user3 = (user0,user1,user2,user3)
         else:
             pass
+
+    def window_event(self):
+        '''Function that enables manual picking of window start/end ranges'''
+        if window == True:
+            # Windowing code
+            st = self.horz1 + self.horz2
+            Windower = WindowPicker(st,user0,user1,user2,user3,self.tt_rel)
+            if Windower.wbeg1 is None:
+                print("Skipping")
+                self.bad = True # Switch to tell sheba.py if we actually want to meausre this event
+            else:
+                print("Windower Closed, adjusting window ranges")
+                (user0,user1,user2,user3) = Windower.wbeg1, Windower.wbeg2, Windower.wend1, Windower.wend2
+                self.bad = False
+            # Set window ranges in SAC headers
+            self.horz2[0].stats.sac.user0,self.horz2[0].stats.sac.user1,self.horz2[0].stats.sac.user2,self.horz2[0].stats.sac.user3 = (user0,user1,user2,user3)
+            self.horz1[0].stats.sac.user0,self.horz1[0].stats.sac.user1,self.horz1[0].stats.sac.user2,self.horz1[0].stats.sac.user3 = (user0,user1,user2,user3)
+            self.vert[0].stats.sac.user0,self.vert[0].stats.sac.user1,self.vert[0].stats.sac.user2,self.vert[0].stats.sac.user3 = (user0,user1,user2,user3)
 
     def write_out(self,phase,label,path=None,synth=False):
         """
