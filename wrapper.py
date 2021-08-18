@@ -75,14 +75,14 @@ class Interface:
             try:
                 self.window_event()
             except ValueError:
-                print('Event Skipped')
-                return 
+                return 'Event Skipped'
             
         self.gen_infile(fname)
         self.write_out(fname)
-        print(f'Worker {current_process()} Passing {fname} into Sheba.')
-        out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.rundir)
-
+        print(f'Passing {fname} into Sheba.')
+        out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path)
+        print(out)
+        
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
         '''
         Generates the input file needed for the Fortran SHEBA routines.
@@ -95,7 +95,7 @@ class Interface:
             writer.write('1 \n') # Specifies Eigenvalue minimisation, replace with spol if transverse minimisation is desired (not supported here)
             writer.write('{} {} \n'.format(nwind,nwind))
             writer.write('{} \n'.format(tlag_max)) # sets max tlag in gridsearch
-            writer.write('0')  
+            writer.write('0 \n')  
             writer.write('0')
    
     def write_out(self,filename):
