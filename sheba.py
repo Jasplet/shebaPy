@@ -163,7 +163,6 @@ def run_sheba(runpath,filepath,phases=['ScS']):
             if os.path.isfile(f_check) == True: # Check if event has already been processed
                 print('File has already been processed: {} '.format(f_check))
             else:
-                #print('File to process: {} '.format(f_check))
                 if len(st) == 3:
                     Event = Interface(st)
                     print('Check epicentral distances')
@@ -171,29 +170,25 @@ def run_sheba(runpath,filepath,phases=['ScS']):
                 #       To ensure that we contain the phase information completlely lets model the arrival using TauP
                         print('Modelling Traveltimes')
                         Event.model_traveltimes(phase)
-                        if Event.tt is None:
-                            print('NO Traveltimes, bad data file {}'.format(st_id))
+                        # print('Process waveform, stat {}, phase {}, label {}'.format(station,phase,label))
+                        Event.process(synth=False,window=False) # If windowing is set to true then SHEBA must be called in serial mode
+                        if Event.bad is True:
+                            # A bad waveform that we dont want anyhting to do with, so skip it
                             pass
-                        else:
-                            # print('Process waveform, stat {}, phase {}, label {}'.format(station,phase,label))
-                            Event.process(synth=False,window=False) # If windowing is set to true then SHEBA must be called in serial mode
-                            if Event.bad is True:
-                                # A bad waveform that we dont want anyhting to do with, so skip it
-                                pass
 
-                            else:
-                                # print('Function', Event.process(phase,synth=False))
-                                outdir = '{}/{}/{}'.format(runpath,station,phase)
-                                try:
-                                    Event.write_out(phase,label,path=outdir)
-                                except OSError:
-                                    print('Directory {} writing outputs do not all exist. Initialising'.format(outdir))
-                                    os.makedirs(outdir)
-                                    # print('Label is {}. Path is {}'.format(label,path))
-                                    Event.write_out(phase,label,path=outdir)
-                                # print('RUn sheba, stat {}, phase {}, label {}, out {}'.format(station,phase,label,outdir))
-                                Event.sheba(phase,label,path=outdir,nwind=True)
-                                #tidyup_by_stat(path,station,phase,label,outfile)
+                        else:
+                            # print('Function', Event.process(phase,synth=False))
+                            outdir = '{}/{}/{}'.format(runpath,station,phase)
+                            try:
+                                Event.write_out(phase,label,path=outdir)
+                            except OSError:
+                                print('Directory {} writing outputs do not all exist. Initialising'.format(outdir))
+                                os.makedirs(outdir)
+                                # print('Label is {}. Path is {}'.format(label,path))
+                                Event.write_out(phase,label,path=outdir)
+                            # print('RUn sheba, stat {}, phase {}, label {}, out {}'.format(station,phase,label,outdir))
+                            Event.sheba(phase,label,path=outdir,nwind=True)
+                            #tidyup_by_stat(path,station,phase,label,outfile)
                     else:
                         # print('Fail, Distance ')
                         pass
@@ -203,7 +198,6 @@ def run_sheba(runpath,filepath,phases=['ScS']):
     else:
         print('The directory {} does not exists'.format(dir_path))
         pass
-
 
 ##############################
 # Begin Program
