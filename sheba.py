@@ -107,7 +107,7 @@ def run_synth_i(runpath,filepath):
             stat= st[0].stats.station
             #print(st)
             Event = Interface(st)
-            Event.process(synth=True)
+            Event.preprocess(synth=True)
             # print(r_dir)
             print(label)
             Event.write_out('SYNTH',label,path=r_dir)
@@ -129,7 +129,7 @@ def run_synth(runpath,filepath):
     #print(st)
     Event = Interface(st)
     # print('Synthetics Used, Windows *should* be predefined')
-    Event.process(synth=True)
+    Event.preprocess(synth=True)
     # print(r_dir)
     print(label)
     Event.write_out('SYNTH',label,path=runpath)
@@ -166,18 +166,18 @@ def run_sheba(runpath,filepath,phases=['ScS']):
                 if len(st) == 3:
                     Event = Interface(st)
                     print('Check epicentral distances')
+                    # check should not be done in wrapper!
                     if Event.check_phase_dist(phase_to_check=phase) is True:
                 #       To ensure that we contain the phase information completlely lets model the arrival using TauP
                         print('Modelling Traveltimes')
                         Event.model_traveltimes(phase)
                         # print('Process waveform, stat {}, phase {}, label {}'.format(station,phase,label))
-                        Event.process(synth=False,window=False) # If windowing is set to true then SHEBA must be called in serial mode
+                        Event.preprocess(synth=False,window=False) # If windowing is set to true then SHEBA must be called in serial mode
                         if Event.bad is True:
                             # A bad waveform that we dont want anyhting to do with, so skip it
                             pass
 
                         else:
-                            # print('Function', Event.process(phase,synth=False))
                             outdir = '{}/{}/{}'.format(runpath,station,phase)
                             try:
                                 Event.write_out(phase,label,path=outdir)
