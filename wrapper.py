@@ -66,14 +66,21 @@ class Interface:
 #               Initialise Windows        
             self.initialise_windows(trace)
 
-    def measure_splitting(self,output_filename, sheba_exec_path):
+    def measure_splitting(self,output_filename, sheba_exec_path, window=False):
         """
         Measures Shear-wave splitting using Sheba. 
         """
         fname = f'{output_filename}_{self.phase}'
+        if window:
+            try:
+                self.window_event()
+            except ValueError:
+                print('Event Skipped')
+                return 
+            
         self.gen_infile(fname)
         self.write_out(fname)
-        print(f'Worker {current_process()} Passing {label} into Sheba.')
+        print(f'Worker {current_process()} Passing {fname} into Sheba.')
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.rundir)
 
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
@@ -111,14 +118,13 @@ class Interface:
                                 self.st[0].stats.sac['user2'], self.st[0].stats.sac['user3'],
                                 self.tt_rel)
         if Windower.wbeg1 is None:
-            print("Skipping")
-            return False
+            raise ValueError('Skipping event as it is poor quality!')
         else:
             print("Windower Closed, adjusting window ranges")
             windows = {'user0' : Windower.wbeg1, 'user1' : Windower.wbeg2,
                       'user2' : Windower.wend1, 'user3' : Windower.wend2}
             [trace.stats.sac.update(windows) for trace in self.st]
-            return True
+            return
         
     def model_traveltimes(self):
         """
@@ -129,8 +135,7 @@ class Interface:
         model = TauPyModel(model="iasp91")
         tt = model.get_travel_times((self.sacstats['evdp']),
                                      self.sacstats['gcarc'],
-                                     [self.phase])
-   
+                                     [self.phase])  
         traveltime = tt[0].time
         evt_time = obspy.UTCDateTime(year = self.sacstats['nzyear'],
                                      julday = self.sacstats['nzjday'],
