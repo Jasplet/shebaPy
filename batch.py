@@ -26,15 +26,20 @@ def measure_event(file, rundir, phase):
     Measure.preprocess()
     outfile = file.split('.')[0].split('/')[-1] # selects just filename with not extentsion or preceding path
     result = Measure.measure_splitting(outfile, SHEBA_EXEC)
-
+    return result
+    
 def serial_process(filelist, rundir, phase):
     '''
     Measures shear-wave splitting for all files in filelist. Iterates over filelist.
     '''
 
-    for file in filelist:
-        measure_event(file, rundir, phase)
-
+    for i, file in enumerate(filelist):
+        if i == 0: 
+            results = measure_event(file, rundir, phase)
+        else:
+            res = measure_event(file, rundir, phase)
+            results.append(res)
+            
 def pool_process(filelist, rundir, phase, ncores=2):
     '''
     Measures shear-wave splitting using parallel processing (Pool)
