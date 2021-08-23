@@ -66,7 +66,7 @@ class Interface:
 #               Initialise Windows        
             self.initialise_windows(trace)
 
-    def measure_splitting(self,output_filename, sheba_exec_path, window=False):
+    def measure_splitting(self,output_filename, sheba_exec_path, window=False, degub=False):
         """
         Measures Shear-wave splitting using Sheba. 
         """
@@ -81,7 +81,8 @@ class Interface:
         self.write_out(fname)
         print(f'Passing {fname} into Sheba.')
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path)
-        print(out)
+        if degub:
+            print(out)
         
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
         '''
