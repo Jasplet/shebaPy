@@ -14,6 +14,7 @@ import subprocess as sub
 from multiprocessing import current_process
 from subprocess import CalledProcessError
 from netCDF4 import Dataset
+import pandas as pd
 
 class Wrapper:
     """
@@ -73,6 +74,12 @@ class Wrapper:
     def measure_splitting(self,output_filename, sheba_exec_path, window=False, debug=False):
         """
         Measures Shear-wave splitting using Sheba. 
+        
+        Args:
+            output_filename (str): filestem to name processed data and SHEBA outfiles
+            sheba_exec_path (str): path to the compiled SHEBA executable sheba_exec
+            window (bool | optional): switch to manual windowing (if True) or to use pre-defined windows (False)
+            debug (bool | optional): prints out SHEBA stdout when True. Default is False
         """
         fname = f'{output_filename}_{self.phase}'
         if window:
@@ -88,12 +95,29 @@ class Wrapper:
         if debug:
             # print what sheba returns to stdout. useful for debugging the wrapping. 
             print(out)
-       
-        result = Dataset(f'{self.path}/{fname}_sheba_result.nc')
+        result = self.collate_result(fname)
+        return result    
+        
+    def collate_result(self, fname):
+        '''Collate results after measurment into a DataFrame'''
+        
+        raw_result = Dataset(f'{self.path}/{fname}_sheba_result.nc')
         print('Best fitting result is')
-        print(f'Fast direction =  {result.fast} +/- {result.dfast}')
-        print(f'Delay time = {result.tlag} +/- {result.dtlag}')
-        return result
+        print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
+        print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
+        
+        evt_date = f'{self.sacstats.nzyear}{self.sacstats.nzjday:03d}'
+        evt_time = f'{self.sacstats.nzhour:02d}{self.sacstats.nzmin:02d}{self.sacstats.nzmin:02d}'
+        df = pd.DataFrame(data={'station':self.station, 'phase':self.phase,
+                                'date':evt_date,'time':evt_time, 'stla':self.sacstats['stla'], 'stlo':self.sacstats['stlo'],
+                                'evla':self.sacstats['evla'], 'evlo':self.sacstats['evlo'], 'evdp':self.sacstats['evdp'],
+                                'gcarc':self.sacstats['gcarc'], 'baz':self.sacstats['baz'], 'azi':self.sacstats['az'],
+                                'wbeg':raw_result.wbeg, 'wend':raw_result.wend, 
+                                'fast':raw_result.fast, 'dfast':raw_result.dfast,
+                                'tlag':raw_result.tlag, 'dtlag':raw_result.dtlag,
+                                'SI':raw_result.intensity, 'Q':raw_result.qfactor,
+                                'snr':raw_result.snr, 'ndf':raw_result.ndf})
+        return df
         
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
         '''
