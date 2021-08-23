@@ -13,7 +13,7 @@ from windower import WindowPicker
 import subprocess as sub
 from multiprocessing import current_process
 from subprocess import CalledProcessError
-
+from netCDF4 import Dataset
 
 class Interface:
     """
@@ -83,6 +83,11 @@ class Interface:
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path)
         if degub:
             print(out)
+       
+        result = Dataset(f'{fname}_sheba_result.nc')
+        print('Best fitting result is')
+        print(f'Fast direction =  {result.fast} +/- {result.dfast}')
+        print(f'Delay time = {result.tlag} +/- {result.dtlag}')
         
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
         '''
