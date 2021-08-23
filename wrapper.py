@@ -15,7 +15,7 @@ from multiprocessing import current_process
 from subprocess import CalledProcessError
 from netCDF4 import Dataset
 
-class Interface:
+class Wrapper:
     """
     Class which will act as the interface to sheba.
     The "subprocess" sheba will be a bound method
@@ -57,12 +57,16 @@ class Interface:
 #       Filter each component. Bandpass flag gives a bandpass-butterworth filter
             trace.filter("bandpass",freqmin= c1, freqmax= c2,corners=2,zerophase=True)
 #       Now trim each component to the input length
-#       We only need to trim and set the window length for real data, not synthetics made with sacsplitwave
-#           Now set the trim
-            print('Trim Traces')
-            t1 = (self.tt_utc - 60) #I.e A minute before the arrival
-            t2 = (self.tt_utc + 120) #I.e Two minutes after the arrival
-            trace.trim(t1,t2)
+#       Data is only trimmed if the record is longer than 3 minutes. 
+#       This is to ensure there is enough space for windowing, especially manual windowing. This record length makes sense
+#       for teleseismic SKS, SKKS, ScS data but may need revising for other shear-wave data. 
+            if (tr.stats.endtime - st.stats.starttime) > 180.0:
+                print('Trim Traces')
+                t1 = (self.tt_utc - 60) #I.e A minute before the arrival
+                t2 = (self.tt_utc + 120) #I.e Two minutes after the arrival
+                trace.trim(t1,t2)
+            else:
+                print('Traces too short (<180 s ) to trim')
 #               Initialise Windows        
             self.initialise_windows(trace)
 
