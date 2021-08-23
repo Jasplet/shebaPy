@@ -116,7 +116,7 @@ class Wrapper:
                                 'fast':raw_result.fast, 'dfast':raw_result.dfast,
                                 'tlag':raw_result.tlag, 'dtlag':raw_result.dtlag,
                                 'SI':raw_result.intensity, 'Q':raw_result.qfactor,
-                                'snr':raw_result.snr, 'ndf':raw_result.ndf})
+                                'snr':raw_result.snr, 'ndf':raw_result.ndf}, index=[0])
         return df
         
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
