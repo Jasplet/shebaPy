@@ -16,3 +16,4 @@ Example = Wrapper(data, 'SKS', rundir='example/')
 # Preprocess method filters and trims data
 Example.preprocess()
 result = Example.measure_splitting('HKT_example', sheba_exec_path='/Users/ja17375/Ext_programs/bin', window=False)
+result.to_csv('HKT_example.sdb', index=False, sep=' ')
