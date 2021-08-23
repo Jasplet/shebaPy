@@ -59,8 +59,8 @@ class Wrapper:
 #       Now trim each component to the input length
 #       Data is only trimmed if the record is longer than 3 minutes. 
 #       This is to ensure there is enough space for windowing, especially manual windowing. This record length makes sense
-#       for teleseismic SKS, SKKS, ScS data but may need revising for other shear-wave data. 
-            if (tr.stats.endtime - st.stats.starttime) > 180.0:
+#       for teleseismic SKS, SKKS, ScS data but may need revising for other shear-wave data.  
+            if (trace.stats.endtime - trace.stats.starttime) > 180.0:
                 print('Trim Traces')
                 t1 = (self.tt_utc - 60) #I.e A minute before the arrival
                 t2 = (self.tt_utc + 120) #I.e Two minutes after the arrival
@@ -70,7 +70,7 @@ class Wrapper:
 #               Initialise Windows        
             self.initialise_windows(trace)
 
-    def measure_splitting(self,output_filename, sheba_exec_path, window=False, degub=False):
+    def measure_splitting(self,output_filename, sheba_exec_path, window=False, debug=False):
         """
         Measures Shear-wave splitting using Sheba. 
         """
@@ -85,13 +85,15 @@ class Wrapper:
         self.write_out(fname)
         print(f'Passing {fname} into Sheba.')
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path)
-        if degub:
+        if debug:
+            # print what sheba returns to stdout. useful for debugging the wrapping. 
             print(out)
        
-        result = Dataset(f'{fname}_sheba_result.nc')
+        result = Dataset(f'{self.path}/{fname}_sheba_result.nc')
         print('Best fitting result is')
         print(f'Fast direction =  {result.fast} +/- {result.dfast}')
         print(f'Delay time = {result.tlag} +/- {result.dtlag}')
+        return result
         
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
         '''
