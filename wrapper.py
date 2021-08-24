@@ -110,7 +110,7 @@ class Wrapper:
         df = pd.DataFrame(data={'station':self.station, 'phase':self.phase,
                                 'date':raw_result.zdate,'time':raw_result.ztime.split('.')[0],
                                 'stla':raw_result.stla, 'stlo':raw_result.stlo,
-                                'evla':raw_result.evla, 'evlo':raw_result.evlo, 'evdp':self.raw_result.evdp,
+                                'evla':raw_result.evla, 'evlo':raw_result.evlo, 'evdp':raw_result.evdp,
                                 'gcarc':raw_result.gcarc, 'azi':raw_result.az, 'baz':raw_result.baz, 
                                 'wbeg':raw_result.wbeg, 'wend':raw_result.wend, 
                                 'fast':raw_result.fast, 'dfast':raw_result.dfast,
