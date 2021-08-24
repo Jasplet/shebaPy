@@ -228,7 +228,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-e","--events",action="store",required=True,help="File name for the .events file containing the filestems you want to processes")
     parser.add_argument("-r","--rundir",action="store",required=True,help="The run directory that you wish to work in")
-    parser.add_argument("-p","--parallel",action="store_true",default=False,help="Swtich for whether you want sheba to run in parallel")
+    parser.add_argument("-p","--parallel",action="store_true",default=False,help="Switch for whether you want sheba to run in parallel")
     parser.add_argument("-nc","--ncores",action="store",type=int,help="Number of Cores requested for a parallel job")
     parser.add_argument("-s","--syn",action="store_true",default=False,help="Indicates that the data to be processed is synthetics, which can required a slightly different treatment")
     args = parser.parse_args()
