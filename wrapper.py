@@ -96,6 +96,7 @@ class Wrapper:
             # print what sheba returns to stdout. useful for debugging the wrapping. 
             print(out)
         result = self.collate_result(fname)
+        # Maybe move all result netCDFs into one folder?
         return result    
         
     def collate_result(self, fname):
@@ -105,13 +106,12 @@ class Wrapper:
         print('Best fitting result is')
         print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
         print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
-        
-        evt_date = f'{self.sacstats.nzyear}{self.sacstats.nzjday:03d}'
-        evt_time = f'{self.sacstats.nzhour:02d}{self.sacstats.nzmin:02d}{self.sacstats.nzmin:02d}'
+    
         df = pd.DataFrame(data={'station':self.station, 'phase':self.phase,
-                                'date':evt_date,'time':evt_time, 'stla':self.sacstats['stla'], 'stlo':self.sacstats['stlo'],
-                                'evla':self.sacstats['evla'], 'evlo':self.sacstats['evlo'], 'evdp':self.sacstats['evdp'],
-                                'gcarc':self.sacstats['gcarc'], 'baz':self.sacstats['baz'], 'azi':self.sacstats['az'],
+                                'date':raw_result.zdate,'time':raw_result.ztime.split('.')[0],
+                                'stla':raw_result.stla, 'stlo':raw_result.stlo,
+                                'evla':raw_result.evla, 'evlo':raw_result.evlo, 'evdp':self.raw_result.evdp,
+                                'gcarc':raw_result.gcarc, 'azi':raw_result.az, 'baz':raw_result.baz, 
                                 'wbeg':raw_result.wbeg, 'wend':raw_result.wend, 
                                 'fast':raw_result.fast, 'dfast':raw_result.dfast,
                                 'tlag':raw_result.tlag, 'dtlag':raw_result.dtlag,
