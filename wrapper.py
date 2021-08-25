@@ -80,12 +80,13 @@ class Wrapper:
             window (bool | optional): switch to manual windowing (if True) or to use pre-defined windows (False)
             debug (bool | optional): prints out SHEBA stdout when True. Default is False
         """
-        fname = f'{output_filename}_{self.phase}'
+        fname = f'{output_filename}'
         if window:
             try:
                 self.window_event()
             except ValueError:
-                return 'Event Skipped'
+                print('Event Skipped')
+                return 
             
         self.gen_infile(fname)
         self.write_out(fname)
@@ -105,16 +106,16 @@ class Wrapper:
         print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
         print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
     
-        result = {'station':self.station, 'phase':self.phase,
-                'date':raw_result.zdate,'time':raw_result.ztime.split('.')[0],
-                'stla':raw_result.stla, 'stlo':raw_result.stlo,
-                'evla':raw_result.evla, 'evlo':raw_result.evlo, 'evdp':raw_result.evdp,
-                'gcarc':raw_result.gcarc, 'azi':raw_result.az, 'baz':raw_result.baz, 
-                'wbeg':raw_result.wbeg, 'wend':raw_result.wend, 
-                'fast':raw_result.fast, 'dfast':raw_result.dfast,
-                'tlag':raw_result.tlag, 'dtlag':raw_result.dtlag,
+        result = {'STAT':self.station, 'PHASE':self.phase,
+                'DATE':raw_result.zdate,'TIME':raw_result.ztime.split('.')[0],
+                'STLA':raw_result.stla, 'STLO':raw_result.stlo,
+                'EVLA':raw_result.evla, 'EVLO':raw_result.evlo, 'EVDP':raw_result.evdp,
+                'GCARC':raw_result.gcarc, 'AZI':raw_result.az, 'BAZ':raw_result.baz, 
+                'WBEG':raw_result.wbeg, 'WEND':raw_result.wend, 
+                'FAST':raw_result.fast, 'DFAST':raw_result.dfast,
+                'TLAG':raw_result.tlag, 'TLAF':raw_result.dtlag,
                 'SI':raw_result.intensity, 'Q':raw_result.qfactor,
-                'snr':raw_result.snr, 'ndf':raw_result.ndf}
+                'SNR':raw_result.snr, 'NDF':raw_result.ndf}
         return result
         
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
