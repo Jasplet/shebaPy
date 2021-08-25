@@ -8,7 +8,7 @@ Created on Mon Aug 23 14:29:22 2021
 batch.py enables batch processing of shear-wave splitting using a Python wrapper
 """
 
-from multiprocessing import Pool, current_process
+#from multiprocessing import Pool, current_process
 from functools import partial
 import contextlib
 import pandas as pd 
@@ -25,20 +25,20 @@ def measure_event(file, rundir, phase):
     Measure = Wrapper(st, phase, rundir=rundir)
     Measure.preprocess()
     outfile = file.split('.')[0].split('/')[-1] # selects just filename with not extentsion or preceding path
-    result = Measure.measure_splitting(outfile, SHEBA_EXEC)
-    return result
+    Measure.measure_splitting(outfile, SHEBA_EXEC)
+    return Measure.result
     
-def serial_process(filelist, rundir, phase):
+def serial_process(filelist, rundir, phases):
     '''
     Measures shear-wave splitting for all files in filelist. Iterates over filelist.
     '''
-
+    results = []
     for i, file in enumerate(filelist):
-        if i == 0: 
-            results = measure_event(file, rundir, phase)
-        else:
-            res = measure_event(file, rundir, phase)
-            results.append(res)
+        result = measure_event(file, rundir, phases[i])
+        results.append(result)
+        
+    result_df = pd.DataFrame(results)
+    return result_df
             
 def pool_process(filelist, rundir, phase, ncores=2):
     '''
