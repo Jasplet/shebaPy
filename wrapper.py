@@ -14,7 +14,6 @@ import subprocess as sub
 from multiprocessing import current_process
 from subprocess import CalledProcessError
 from netCDF4 import Dataset
-import pandas as pd
 
 class Wrapper:
     """
@@ -95,29 +94,28 @@ class Wrapper:
         if debug:
             # print what sheba returns to stdout. useful for debugging the wrapping. 
             print(out)
-        result = self.collate_result(fname)
-        # Maybe move all result netCDFs into one folder?
-        return result    
+        self.result = self.collate_result(fname)
+        # Maybe move all result netCDFs into one folder?  
         
     def collate_result(self, fname):
-        '''Collate results after measurment into a DataFrame'''
+        '''Collate results after measurment into a Dict'''
         
         raw_result = Dataset(f'{self.path}/{fname}_sheba_result.nc')
         print('Best fitting result is')
         print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
         print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
     
-        df = pd.DataFrame(data={'station':self.station, 'phase':self.phase,
-                                'date':raw_result.zdate,'time':raw_result.ztime.split('.')[0],
-                                'stla':raw_result.stla, 'stlo':raw_result.stlo,
-                                'evla':raw_result.evla, 'evlo':raw_result.evlo, 'evdp':raw_result.evdp,
-                                'gcarc':raw_result.gcarc, 'azi':raw_result.az, 'baz':raw_result.baz, 
-                                'wbeg':raw_result.wbeg, 'wend':raw_result.wend, 
-                                'fast':raw_result.fast, 'dfast':raw_result.dfast,
-                                'tlag':raw_result.tlag, 'dtlag':raw_result.dtlag,
-                                'SI':raw_result.intensity, 'Q':raw_result.qfactor,
-                                'snr':raw_result.snr, 'ndf':raw_result.ndf}, index=[0])
-        return df
+        result = {'station':self.station, 'phase':self.phase,
+                'date':raw_result.zdate,'time':raw_result.ztime.split('.')[0],
+                'stla':raw_result.stla, 'stlo':raw_result.stlo,
+                'evla':raw_result.evla, 'evlo':raw_result.evlo, 'evdp':raw_result.evdp,
+                'gcarc':raw_result.gcarc, 'azi':raw_result.az, 'baz':raw_result.baz, 
+                'wbeg':raw_result.wbeg, 'wend':raw_result.wend, 
+                'fast':raw_result.fast, 'dfast':raw_result.dfast,
+                'tlag':raw_result.tlag, 'dtlag':raw_result.dtlag,
+                'SI':raw_result.intensity, 'Q':raw_result.qfactor,
+                'snr':raw_result.snr, 'ndf':raw_result.ndf}
+        return result
         
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
         '''
@@ -211,12 +209,12 @@ class Wrapper:
         """
         if phase == 'SKS':
             if self.sacstats['gcarc'] > 145.0:
-                raise ValueError('Event-Station distance is greater than 145, SKS not visible/reliable.')
+                raise ValueError(f'Event-Station distance {self.sacstats.gcarc} is greater than 145, SKS not visible/reliable.')
         elif phase == 'SKKS':
             if (self.sacstats['gcarc'] < 105.0) or (self.sacstats['gcarc'] > 145.0) :
-                raise ValueError('Event-Station distance outside of acceptable range of 105-145 for SKKS')
+                raise ValueError(f'Event-Station distance {self.sacstats.gcarc} outside of acceptable range of 105-145 for SKKS')
         elif phase == 'ScS':
             if self.sacstats['gcarc'] > 95.0:
-                raise ValueError('Event-Station distance greatr than acceptable distance of 95 deg for ScS')
+                raise ValueError(f'Event-Station distance {self.sacstats.gcarc} greater than acceptable distance of 95 deg for ScS')
         else:
             print(f'Phase {self.phase} not ScS, SKS or SKKS. Not checking!')
