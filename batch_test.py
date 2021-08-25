@@ -12,6 +12,8 @@ path= '/Users/ja17375/Projects/Matisse_Synthetics/ppv1/ideal'
 with open(f'{path}/Inversion_synthetics_noise_0.01.events', 'r+') as infile:
     events = [line.strip() + '.BH*' for line in infile]
     
-test = events[0:2]
-result = serial_process(test, f'{path}/run', ['SKS','SKS'])
-print(result)
+result = serial_process(events, f'{path}/run',
+                        ['SKS','SKS','SKS', 'SKS', 'SKS',
+                         'SKKS','SKKS','SKKS', 'SKKS', 'ScS','ScS']) 
+# passing/ handling of phases needs more thought
+result.to_csv(f'{path}/ppv1_ideal_synthetics_processed.sdb', index=False, sep=' ')
