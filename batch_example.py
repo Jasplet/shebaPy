@@ -14,6 +14,6 @@ with open(f'{path}/Inversion_synthetics_noise_0.01.events', 'r+') as infile:
     
 result = serial_process(events, f'{path}/run',
                         ['SKS','SKS','SKS', 'SKS', 'SKS',
-                         'SKKS','SKKS','SKKS', 'SKKS', 'ScS','ScS']) 
+                         'SKKS','SKKS','SKKS', 'SKKS', 'ScS','ScS'], window=False) 
 # passing/ handling of phases needs more thought
 result.to_csv(f'{path}/ppv1_ideal_synthetics_processed.sdb', index=False, sep=' ')
