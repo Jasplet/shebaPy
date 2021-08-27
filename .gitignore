@@ -130,3 +130,5 @@ dmypy.json
 
 #Sheba runfiles in example
 HKT_example*
+sheba.in
+sheba.result
