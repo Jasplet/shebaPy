@@ -16,8 +16,8 @@ from windower import WindowPicker
 
 class Wrapper:
     """
-    Class which will act as the interface to sheba.
-    The "subprocess" sheba will be a bound method
+    Class that 'wraps' around SHEBA fortran routines.
+    Includes methods for pre-processing and windowing shear-wave data
     """
     def __init__(self,st, phase, rundir=None):
        
@@ -99,7 +99,6 @@ class Wrapper:
             # print what sheba returns to stdout. useful for debugging the wrapping.
             print(out)
         self.result = self.collate_result(fname)
-        # Maybe move all result netCDFs into one folder?
 
     def collate_result(self, fname):
         '''Collate results after measurment into a Dict'''
@@ -109,7 +108,7 @@ class Wrapper:
         print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
         print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
 
-        result = {'STAT':self.station, 'PHASE':self.phase,
+        result = {'STAT':raw_result.station.strip(),
                 'DATE':raw_result.zdate,'TIME':raw_result.ztime.split('.')[0],
                 'STLA':raw_result.stla, 'STLO':raw_result.stlo,
                 'EVLA':raw_result.evla, 'EVLO':raw_result.evlo, 'EVDP':raw_result.evdp,
@@ -133,8 +132,8 @@ class Wrapper:
             # 1 Specifies Eigenvalue minimisation, 
             # replace with spol if transverse minimisation is desired (not supported here)
             writer.write('1 \n')
-            writer.write('{} {} \n'.format(nwind,nwind))
-            writer.write('{} \n'.format(tlag_max)) # sets max tlag in gridsearch
+            writer.write(f'{nwind} {nwind} \n')
+            writer.write(f'{tlag_max} \n') # sets max tlag in gridsearch
             writer.write('0 \n')
             writer.write('0')
 
@@ -163,15 +162,16 @@ class Wrapper:
             print("Windower Closed, adjusting window ranges")
             windows = {'user0' : Windower.wbeg1, 'user1' : Windower.wbeg2,
                       'user2' : Windower.wend1, 'user3' : Windower.wend2}
-            [trace.stats.sac.update(windows) for trace in self.st]
+            for trace in self.st:
+                trace.stats.sac.update(windows)
             return
 
     def model_traveltimes(self):
         """
-        Function to run TauP traveltime models for the SKS phase.
-        Returns SKS predicted arrivals (seconds),
-        origin time of the event (t0) as a UTCDateTime obejct and the SKS arrival as a UTCDateTime object
-        tr - trace object for which SKS arrival time will be predicted
+        Uses TauP to predict phase traveltime.
+        Returns:
+            tt_utc - predicted arrival time as a UTCDateTime object
+            traveltime - predicted arrival time as seconds after event origin time
         """
         model = TauPyModel(model="iasp91")
         tt = model.get_travel_times((self.sacstats['evdp']),
@@ -206,8 +206,8 @@ class Wrapper:
         '''
         evdp = trace.stats.sac.evdp
         if trace.stats.sac.evdp >= 1000:
-            raise Warning('Event depth is greater than 1000km! EVDP may be in meters')
             trace.stats.sac({'evdp':evdp/1000})
+            raise Warning('Event depth is greater than 1000km! EVDP may be in meters')
         elif trace.stats.sac.evdp == 0:
             raise ValueError('Event depth is 0km!')
 
