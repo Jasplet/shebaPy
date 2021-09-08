@@ -9,8 +9,8 @@ batch.py enables batch processing of shear-wave splitting using a Python wrapper
 """
 
 #from multiprocessing import Pool, current_process
-from functools import partial
-import contextlib
+# from functools import partial
+# import contextlib
 import pandas as pd
 import obspy
 from wrapper import Wrapper
@@ -26,9 +26,9 @@ def measure_event(file, rundir, phase, window=False):
     sheba_wrapper.preprocess()
     outfile = file.split('.')[0].split('/')[-1]
     # selects just filename with not extentsion or preceding path
-    sheba_wrapper.measure_splitting(outfile, SHEBA_EXEC, window)
-    return sheba_wrapper.result
- 
+    splitting_result = sheba_wrapper.measure_splitting(outfile, SHEBA_EXEC, window)
+    return splitting_result
+
 def serial_process(filelist, rundir, phases, window=False):
     '''
     Measures shear-wave splitting for all files in filelist. Iterates over filelist.
@@ -48,5 +48,4 @@ def serial_process(filelist, rundir, phases, window=False):
 #     runner = partial(measure_event,rundir,phase)
 #     print("Parallel job. {} cores requested".format(ncores))
 #     with contextlib.closing( Pool(processes = ncores) ) as pool:
-#         pool.map(runner,filelist)
-       
+#         pool.map(runner,filelist)      
