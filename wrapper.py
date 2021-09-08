@@ -8,7 +8,6 @@ Created on Tue Aug 17 12:13:24 2021
 
 import os
 import subprocess as sub
-from multiprocessing import current_process
 from netCDF4 import Dataset
 import obspy
 from obspy.taup import TauPyModel
@@ -83,7 +82,6 @@ class Wrapper:
                                         or to use pre-defined windows (False)
             debug (bool | optional): prints out SHEBA stdout when True. Default is False
         """
-        fname = f'{output_filename}'
         if window:
             try:
                 self.window_event()
@@ -91,14 +89,15 @@ class Wrapper:
                 print('Event Skipped')
                 return
 
-        self.gen_infile(fname)
-        self.write_out(fname)
-        print(f'Passing {fname} into Sheba.')
+        self.gen_infile(output_filename)
+        self.write_out(output_filename)
+        print(f'Passing {output_filename} into Sheba.')
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path, check=True)
         if debug:
             # print what sheba returns to stdout. useful for debugging the wrapping.
             print(out)
-        self.result = self.collate_result(fname)
+        result = self.collate_result(output_filename)
+        return result
 
     def collate_result(self, fname):
         '''Collate results after measurment into a Dict'''
