@@ -13,6 +13,8 @@ import obspy
 from obspy.taup import TauPyModel
 from windower import WindowPicker
 
+from .plots import plot_traces, plot_pm
+
 class Wrapper:
     """
     Class that 'wraps' around SHEBA fortran routines.
