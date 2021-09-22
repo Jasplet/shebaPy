@@ -13,7 +13,7 @@ import obspy
 from obspy.taup import TauPyModel
 from windower import WindowPicker
 
-from .plots import plot_traces, plot_pm
+# from .plots import plot_traces, plot_pm
 
 class Wrapper:
     """
@@ -27,15 +27,18 @@ class Wrapper:
         self.station = st[0].stats.station # station code
         self.delta = st[0].stats.delta # sample rate of seismometer [s]
         # do some basic tests of the data
-        self.check_phase_dist(phase)
+
         self.phase = phase # The shear-wave phase we are measuing splitting for!
         for trace in self.st:
             trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
 #       Formats Station name in headers so that it is 8 characters long,
 #       with emtpy character fill with whitespaces
-            self.check_evdp(trace)
-
-        self.tt_utc, self.tt_rel = self.model_traveltimes()
+           
+        if phase != 'Synth':
+            print(phase)
+            check_phase_dist(phase, self.sacstats['gcarc'])
+            check_evdp(trace)
+            self.tt_utc, self.tt_rel = self.model_traveltimes()
         if rundir is None:
             print('Setting rundir path to current working directory')
             self.path = os.getcwd()
@@ -116,7 +119,7 @@ class Wrapper:
                 'GCARC':raw_result.gcarc, 'AZI':raw_result.az, 'BAZ':raw_result.baz, 
                 'WBEG':raw_result.wbeg, 'WEND':raw_result.wend, 
                 'FAST':raw_result.fast, 'DFAST':raw_result.dfast,
-                'TLAG':raw_result.tlag, 'TLAF':raw_result.dtlag,
+                'TLAG':raw_result.tlag, 'DTLAG':raw_result.dtlag,
                 'SI':raw_result.intensity, 'Q':raw_result.qfactor,
                 'SNR':raw_result.snr, 'NDF':raw_result.ndf}
         return result
@@ -201,29 +204,31 @@ class Wrapper:
             keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
             trace.stats.sac.update(keychain)
 
-    def check_evdp(self, trace):
-        '''
-        Tests the event depths 
-        '''
-        evdp = trace.stats.sac.evdp
-        if trace.stats.sac.evdp >= 1000:
-            trace.stats.sac({'evdp':evdp/1000})
-            raise Warning('Event depth is greater than 1000km! EVDP may be in meters')
-        elif trace.stats.sac.evdp == 0:
-            raise ValueError('Event depth is 0km!')
+def check_evdp(trace):
+    '''
+    Tests the event depths 
+    '''
+    evdp = trace.stats.sac.evdp
+    if trace.stats.sac.evdp >= 1000:
+        trace.stats.sac({'evdp':evdp/1000})
+        raise Warning('Event depth is greater than 1000km! EVDP may be in meters')
+    elif trace.stats.sac.evdp == 0:
+        raise ValueError('Event depth is 0km!')
 
-    def check_phase_dist(self,phase):
-        """
-        Function to test if the given phase is actually measureable!
-        """
-        if phase == 'SKS':
-            if self.sacstats['gcarc'] > 145.0:
-                raise ValueError(f'Event-Station distance {self.sacstats.gcarc} is greater than 145, SKS not visible/reliable.')
-        elif phase == 'SKKS':
-            if (self.sacstats['gcarc'] < 105.0) or (self.sacstats['gcarc'] > 145.0) :
-                raise ValueError(f'Event-Station distance {self.sacstats.gcarc} outside of acceptable range of 105-145 for SKKS')
-        elif phase == 'ScS':
-            if self.sacstats['gcarc'] > 95.0:
-                raise ValueError(f'Event-Station distance {self.sacstats.gcarc} greater than acceptable distance of 95 deg for ScS')
-        else:
-            print(f'Phase {self.phase} not ScS, SKS or SKKS. Not checking!')
+def check_phase_dist(phase, gcarc):
+    """
+    Function to test if the given phase is actually measureable!
+    """
+    if phase == 'SKS':
+        if gcarc > 145.0:
+            raise ValueError(f'Event-Station distance {gcarc} is greater than 145, SKS not visible/reliable.')
+    elif phase == 'SKKS':
+        if (gcarc < 105.0) or (gcarc > 145.0) :
+            raise ValueError(f'Event-Station distance {gcarc} outside of acceptable range of 105-145 for SKKS')
+    elif phase == 'ScS':
+        if gcarc > 95.0:
+            raise ValueError(f'Event-Station distance {gcarc} greater than acceptable distance of 95 deg for ScS')
+    elif phase == 'Synth':
+        print('Skip test for synthetics')
+    else:
+        print(f'Phase {phase} not ScS, SKS or SKKS. Not checking!')
