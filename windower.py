@@ -1,8 +1,9 @@
 import numpy as np
-import obspy
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.fftpack import fft
+
+# from .plots import plot_traces
 
 class WindowPicker:
     """
