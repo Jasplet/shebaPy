@@ -26,18 +26,21 @@ def plot_traces(st, **kwargs):
     
     times = time_shift(st)
     
-    ax.plot(times, st[0].data)
-    ax.plot(times, st[1].data)
+    ax.plot(times, st[0].data, label=st[0].stats.channel, color='dodgerblue')
+    ax.plot(times, st[1].data, label=st[1].stats.channel, color='darkorange')
     
     if 'show_window_range' in kwargs:
-        pass
+        # window range should be a list of [wbeg1 wend1 wbeg2 wend2]
+        for marker in ['user0', 'user1', 'user2', 'user3']:
+            ax.axvline(x=st[0].stats.sac[marker], linewidth=1, color='black', linestyle='--')
+        
     
     # set axis label
     if 'units' not in kwargs:
         kwargs['units'] = 's'     
             
-    ax.set_xlabel('Time (' + kwargs['units'] +')')
-    
+    ax.set_xlabel(f'Time relative to origin ({kwargs["units"]})')
+    ax.legend(framealpha=0.75)
     plt.show()
 
 def time_shift(stream):
