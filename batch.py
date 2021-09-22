@@ -34,7 +34,9 @@ def serial_process(filelist, rundir, phases, window=False):
     Measures shear-wave splitting for all files in filelist. Iterates over filelist.
     '''
     results = []
+        
     for i, file in enumerate(filelist):
+            
         result = measure_event(file, rundir, phases[i], window)
         results.append(result)
 
