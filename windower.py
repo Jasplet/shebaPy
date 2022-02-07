@@ -7,11 +7,31 @@ from scipy.fftpack import fft
 
 class WindowPicker:
     """
-    Pick a Window start/end range, for use with cluster analysis code
+    Picks a Window start/end range, for use with cluster analysis code
     """
 
-    def __init__(self,st,wbeg1,wbeg2,wend1,wend2,tt,**kwargs):
+    def __init__(self, st ,wbeg1 ,wbeg2 ,wend1 ,wend2 ,tt,**kwargs):
+        '''
+        Cosntructs ineractive window picker for a waveform
+        Parameters
+        ----------
+        st : 
+            obspy Stream object containing waveform data
+        wbeg1 : float
+            initial min value of window start range
+        wbeg2 : float
+            initial max value of window start range
+        wend1 : float
+            initial min value of window end range
+        wend2 : float
+            initial max value of window end range
+        tt : float
+            phase arrival time relative relative to event source time [s]
 
+        Returns
+        -------
+        None.
+        '''
         #t0 = 60 seconds before traveltime (aka the start of the trimming seismogram)
         self.st = st # Obspy stream containing BHN and BHE
         # st.plot()
@@ -64,7 +84,10 @@ class WindowPicker:
         plt.show()
 
     def plot_fft(self):
-        ''' Takes and fft of both components (within wbeg1 and wend2 and plots). This does not get updated by changes in windowing'''
+        '''
+        Takes and fft of both components (within wbeg1 and wend2 and plots).
+        This does not get updated by changes in windowing
+        '''
         # Trim traces to intial wbeg and wend. Use delta to work out the indexes that correspond to the window start/end positions.
         st = self.st.copy()
 
@@ -88,6 +111,9 @@ class WindowPicker:
         # plt.show()
 
     def connect(self):
+        '''
+        Sets up interactive options in figure canvas
+        '''
         # self.cidclick = self.canvas.mpl_connect('button_press_event', self.click)
         self.cidmotion = self.canvas.mpl_connect('motion_notify_event', self.motion)
         # self.cidrelease = self.canvas.mpl_connect('button_release_event', self.release)
@@ -101,6 +127,7 @@ class WindowPicker:
         'z' & 'c' set the window end range
         'q' exit the plot and returns the current WBEG, WEND
         The vertical line markers and annotations are redrawn after each Key Press
+        
         '''
         if event.key == "a":
             print('WBEG Start')
@@ -157,7 +184,9 @@ class WindowPicker:
         self.canvas.draw()
 
     def disconnect(self):
-        'disconnect all the stored connection ids'
+        '''
+        disconnect all the stored connection ids
+        '''
         # self.canvas.mpl_disconnect(self.cidclick)
         self.canvas.mpl_disconnect(self.cidmotion)
         self.canvas.mpl_disconnect(self.cidenter)

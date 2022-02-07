@@ -16,6 +16,11 @@ from obspy import UTCDateTime
 def plot_traces(st, **kwargs):
     '''
     function to plot shear-wave traces 
+    
+    Parameters:
+    ----------
+    st :
+        obspy Stream conatining waveform data to plot
     '''
     
     if 'axes' not in kwargs:
@@ -43,17 +48,27 @@ def plot_traces(st, **kwargs):
     ax.legend(framealpha=0.75)
     plt.show()
 
-def time_shift(stream):
+def time_shift(st):
     '''
     Calculates time shift to make st.times() in seconds after event 
+    
+    Parameters:
+    ----------
+    st :
+        obspy Stream conatining waveform data
+        
+    Returns
+    ----------
+    relative_times : array-like
+        event-relative times (i.e., time after earthquake source time)
     '''
-    sacstats = stream[0].stats.sac
+    sacstats = st[0].stats.sac
     origin = UTCDateTime(year=sacstats['nzyear'], julday=sacstats['nzjday'],
                                hour=sacstats['nzhour'], minute=sacstats['nzmin'],
                                second=sacstats['nzsec'], microsecond=sacstats['nzmsec']
                               )
-    time_after_origin = stream[0].stats.starttime - origin
-    relative_times = stream[0].times() + time_after_origin
+    time_after_origin = st[0].stats.starttime - origin
+    relative_times = st[0].times() + time_after_origin
     return relative_times
     
 if __name__ == '__main__':
