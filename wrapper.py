@@ -18,22 +18,55 @@ from windower import WindowPicker
 class Wrapper:
     """
     Class that 'wraps' around SHEBA fortran routines.
+    
     Includes methods for pre-processing and windowing shear-wave data
+    
+    Attributes
+    ----------
+    st :
+        obspy Stream object that holds waveform data
+    sacstats : dict
+        metadata from SAC headers
+    station : str 
+        Recording station code
+    delta : float
+        seismometer sample rate
+    phase : str
+        seismic phase recorded
+    tt_utc :
+        traveltime in UTCDateTime format
+    tt_rel :
+        relative traveltime (i.e., seconds after event time)
+    path : str
+        path to working directory for SHEBA
+    Methods
+    ----------
+    
+    
     """
     def __init__(self,st, phase, rundir=None):
-       
+        '''
+        Constructs Wrapper for a 3-component waveform
+        
+        Parameters:
+        ----------
+        st : 
+            obspy Stream object containing raw data
+        phase : str
+            seismic phase of interes
+        rundir : str, optional, default=None
+            path to run directory. if None current working directory is used
+        '''
         self.st = st
         self.sacstats = st[0].stats.sac
         self.station = st[0].stats.station # station code
         self.delta = st[0].stats.delta # sample rate of seismometer [s]
-        # do some basic tests of the data
-
         self.phase = phase # The shear-wave phase we are measuing splitting for!
         for trace in self.st:
             trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
 #       Formats Station name in headers so that it is 8 characters long,
 #       with emtpy character fill with whitespaces
-           
+#       Do some basic data QA
         if phase != 'Synth':
             print(phase)
             check_phase_dist(phase, self.sacstats['gcarc'])
@@ -49,12 +82,18 @@ class Wrapper:
         """
         Function to bandpass filter and trim the components
         Seismograms are trimmed so that they start 1 minute before the expected arrival 
-        and end 2 minutes after the arrival
-        c1 - [Hz] Lower corner frequency
-        c2 - [Hz] Upper corner frequency
+        and end 2 minutes after the arrival.
         By default traces will be filtered between 0.01Hz-0.5Hz.
         Using an upper corner of 0.1Hz for SKS/SKKS is also common, 
         but can cut out high f signal (but also reduces noise)
+        
+        Parameters
+        ----------
+        c1 : float, optional, default=0.01
+            Lower corner frequency [Hz]
+        c2 : float, optional, default=0.5
+            Upper corner frequency [Hz]
+ 
         """
         for trace in self.st:
 #       De-mean and detrend each component
@@ -80,12 +119,20 @@ class Wrapper:
         """
         Measures Shear-wave splitting using Sheba. 
 
-        Args:
-            output_filename (str): filestem to name processed data and SHEBA outfiles
-            sheba_exec_path (str): path to the compiled SHEBA executable sheba_exec
-            window (bool | optional): switch to manual windowing (if True) 
-                                        or to use pre-defined windows (False)
-            debug (bool | optional): prints out SHEBA stdout when True. Default is False
+        Parameters
+        ----------
+        output_filename : str
+            filestem to name processed data and SHEBA outfiles
+        sheba_exec_path : str
+            path to the compiled SHEBA executable sheba_exec
+        window : bool, optional, default=False
+            switch to manual windowing (if True) or to use pre-defined windows (False)
+        debug : bool, optional, default=False
+            prints out SHEBA stdout when True. Default is False
+            
+        Returns:
+            result : dict
+                Shear-wave splitting measurement results and metadata
         """
         if window:
             try:
@@ -105,7 +152,19 @@ class Wrapper:
         return result
 
     def collate_result(self, fname):
-        '''Collate results after measurment into a Dict'''
+        '''
+        Collates meausurement results from SHEBA, allowing them to be used by other functons
+        
+        Parameters
+        ----------    
+        fname : str
+            output filestem used by SHEBA
+        
+        Returns
+        ----------
+        result : dict 
+            Shear-wave splitting measurement results and metadata
+        '''
 
         raw_result = Dataset(f'{self.path}/{fname}_sheba_result.nc')
         print('Best fitting result is')
@@ -120,13 +179,24 @@ class Wrapper:
                 'WBEG':raw_result.wbeg, 'WEND':raw_result.wend, 
                 'FAST':raw_result.fast, 'DFAST':raw_result.dfast,
                 'TLAG':raw_result.tlag, 'DTLAG':raw_result.dtlag,
-                'SI':raw_result.intensity, 'Q':raw_result.qfactor,
+                'SI(Pa)':raw_result.intensity_estimated,
+                'SI(Pr)':raw_result.intensity, 'Q':raw_result.qfactor,
                 'SNR':raw_result.snr, 'NDF':raw_result.ndf}
         return result
         
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
         '''
         Generates the input file needed for the Fortran SHEBA routines.
+        
+        Parameters
+        ----------
+        filename : str
+            name of waveform data for sheba to read in 
+        nwind : int, optional, default=10
+            number of analysis window starts/ends to use in cluster analysis
+        tlag_max : flat, optional, default=4.0
+            maximum allowable delay time in grid search
+            
         '''
         with open(f'{self.path}/sheba.in','w') as writer:
             writer.write('SHEBA.IN \n')
@@ -146,7 +216,10 @@ class Wrapper:
         Function to write the component seismograms to SAC files to the SHEBA rundir.
         The rundir is set by self.path.
         
-        filename [str] - the output filename for each trace.
+        Parameters
+        -----------
+        filename : str
+            the output filename for each trace
         
         """
         for trace in self.st:
@@ -154,7 +227,10 @@ class Wrapper:
             trace.write(f'{self.path}/{filename}.{ch}', format='SAC', byteorder=1)
 
     def window_event(self):
-        '''Function that enables manual picking of window start/end ranges'''
+        '''
+        Function that enables manual picking of window start/end ranges by initialising a 
+        WindowPicker object
+        '''
         # Windowing code
         Windower = WindowPicker(self.st,
                                 self.st[0].stats.sac['user0'], self.st[0].stats.sac['user1'],
@@ -173,9 +249,13 @@ class Wrapper:
     def model_traveltimes(self):
         """
         Uses TauP to predict phase traveltime.
-        Returns:
-            tt_utc - predicted arrival time as a UTCDateTime object
-            traveltime - predicted arrival time as seconds after event origin time
+        
+        Returns
+        ----------
+        tt_utc :
+            predicted arrival time as a UTCDateTime object
+        traveltime :
+            predicted arrival time as seconds after event origin time
         """
         model = TauPyModel(model="iasp91")
         tt = model.get_travel_times((self.sacstats['evdp']),
@@ -192,7 +272,15 @@ class Wrapper:
         return tt_utc, traveltime
 
     def initialise_windows(self, trace):
-        '''Add docstring '''
+        '''
+        Checks for the presence of analysis window in trace SAC headers (user0-3).
+        If they are not present default values are initialised around the predicted arrival time
+        
+        Parameters:
+        ----------
+        trace : 
+            obspy Trace object to test
+        '''
         if all (k in trace.stats.sac for k in ('user0','user1','user2','user3')):
             print('Pre-defined window ranges found')
         else:
@@ -206,7 +294,12 @@ class Wrapper:
 
 def check_evdp(trace):
     '''
-    Tests the event depths 
+    Tests the event depth in the trace SAC headers to make sure it is a sensible value
+    
+    Parameters:
+    ----------
+    trace : 
+        obspy Trace object to test    
     '''
     evdp = trace.stats.sac.evdp
     if trace.stats.sac.evdp >= 1000:
@@ -217,7 +310,14 @@ def check_evdp(trace):
 
 def check_phase_dist(phase, gcarc):
     """
-    Function to test if the given phase is actually measureable!
+    Function to test if the given phase is actually measureable
+    
+    Parameters
+    ----------
+    phase : str 
+        seismic phase to measure
+    gcarc : float
+        great circle distance between earthquake and the recording station
     """
     if phase == 'SKS':
         if gcarc > 145.0:
