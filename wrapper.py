@@ -64,6 +64,7 @@ class Wrapper:
         self.phase = phase # The shear-wave phase we are measuing splitting for!
         for trace in self.st:
             trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
+            self.fix_cmp_dir(trace)
 #       Formats Station name in headers so that it is 8 characters long,
 #       with emtpy character fill with whitespaces
 #       Do some basic data QA
@@ -77,6 +78,21 @@ class Wrapper:
             self.path = os.getcwd()
         else:
             self.path = rundir
+
+    def fix_cmp_dir(self, trace):
+        """
+        Fixes the sac headers cmpinc, cmpaz for BHE,BHN, BHZ channels. If data is 
+        downlaoded directly from the IRIS DMC then these SAC headers are missing
+        """
+        if trace.stats.channel == 'BHE':
+            trace.stats.sac.cmpinc = 90
+            trace.stats.sac.cmpaz = 90
+        elif trace.stats.channel == 'BHN':
+            trace.stats.sac.cmpinc = 90
+            trace.stats.sac.cmpaz = 0
+        elif trace.stats.channel == 'BHZ': 
+            trace.stats.sac.cmpinc = 0
+            trace.stats.sac.cmpaz = 0
 
     def preprocess(self,c1=0.01,c2=0.5):
         """
