@@ -19,7 +19,7 @@ from wrapper import Wrapper
 
 SHEBA_EXEC = '/Users/ja17375/Ext_Programs/bin'
 
-def measure_event(file, rundir, phase, window=False):
+def measure_event(file, rundir, phase, window=False, debug=False, c1=0.01, c2=0.5):
     '''
     Measures shear-wave splitting for a given event
     
@@ -41,13 +41,13 @@ def measure_event(file, rundir, phase, window=False):
     '''
     input_data = obspy.read(file)
     sheba_wrapper = Wrapper(input_data, phase, rundir=rundir)
-    sheba_wrapper.preprocess()
+    sheba_wrapper.preprocess(c1, c2)
     outfile = file.split('.')[0].split('/')[-1]
     # selects just filename with not extentsion or preceding path
-    splitting_result = sheba_wrapper.measure_splitting(outfile, SHEBA_EXEC, window)
+    splitting_result = sheba_wrapper.measure_splitting(outfile, SHEBA_EXEC, window, debug)
     return splitting_result
 
-def serial_process(filelist, rundir, phases, window=False):
+def serial_process(filelist, rundir, phases, window=False, debug=False, c1=0.01, c2=0.5):
     '''
     Measures shear-wave splitting for all files in filelist. Iterates over filelist.
     
@@ -69,9 +69,10 @@ def serial_process(filelist, rundir, phases, window=False):
     '''
     results = []
 
+
     for i, file in enumerate(filelist):
             
-        result = measure_event(file, rundir, phases[i], window)
+        result = measure_event(file, rundir, phases[i], window, debug, c1, c2)
         results.append(result)
 
     result_df = pd.DataFrame(results)
