@@ -47,7 +47,7 @@ class WindowPicker:
         gs = gridspec.GridSpec(2,2)
         self.ax1 = plt.subplot(gs[1,:]) # Bottom Row, for window picking
         self.ax2 = plt.subplot(gs[0,:]) # Top Row, for fft plot
-        # self.plot_fft()
+        self.plot_fft()
         self.canvas = fig.canvas
         # Add seismograms
         self.ax1.plot(self.t, self.st[0].data,label=st[0].stats.channel, color='darkorange')
@@ -94,10 +94,13 @@ class WindowPicker:
         horz1 = st[0]
         horz2 = st[1]
         N = len(horz1) # number of samples in traces
+        if N % 2 !=0:
+            N = N -1
+
         print(N)
         # Set sample spacing in f-domain
         df = 1.0/(2.0*self.delta) # Sample frequency
-        xf = np.linspace(0.0,df,N/2) # Frequencies up to F_nyquist (N/2*df)
+        xf = np.linspace(0.0,df,int(N/2)) # Frequencies up to F_nyquist (N/2*df)
         # Take the fft
         fft_h1 = fft(horz1.data)
         fft_h2 = fft(horz2.data)
