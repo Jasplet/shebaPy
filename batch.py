@@ -10,6 +10,7 @@ batch.py enables batch processing of shear-wave splitting using a Python wrapper
 
 import pandas as pd
 import obspy
+import os
 #Imports for multi-processing
 #from multiprocessing import Pool, current_process
 # from functools import partial
@@ -26,7 +27,7 @@ def measure_event(file, rundir, phase, window=False, debug=False, c1=0.01, c2=0.
     Parameters
     ----------
     file : str 
-        name of SAC file containing waveform data to measure
+        name of SAC files containing waveform data to measure
     rundir : str
         directory in which Sheba will run to make the measurement
     phase : str
@@ -71,9 +72,17 @@ def serial_process(filelist, rundir, phases, window=False, debug=False, c1=0.01,
 
 
     for i, file in enumerate(filelist):
-            
-        result = measure_event(file, rundir, phases[i], window, debug, c1, c2)
-        results.append(result)
+        res_path = '/Users/ja17375/Projects/DeepMelt/CanadianShield/YKW3/run'
+        res_stem = file.split('/')[-1]
+        res_id = res_stem.split('.')[0]
+        if os.path.isfile(f'{res_path}/{res_id}_sheba_result.nc'):
+            print('Skipping event - already measured')
+        else:
+            try:
+                result = measure_event(file, rundir, phases[i], window, debug, c1, c2)
+                results.append(result)
+            except ValueError:
+                print(ValueError)
 
     result_df = pd.DataFrame(results)
     return result_df

@@ -124,7 +124,7 @@ class Wrapper:
             if (trace.stats.endtime - trace.stats.starttime) > 180.0:
                 print('Trim Traces')
                 t1 = (self.tt_utc - 60) #I.e A minute before the arrival
-                t2 = (self.tt_utc + 120) #I.e Two minutes after the arrival
+                t2 = (self.tt_utc + 60) #I.e Two minutes after the arrival
                 trace.trim(t1,t2)
             else:
                 print('Traces too short (<180 s ) to trim')
@@ -165,8 +165,33 @@ class Wrapper:
             # print what sheba returns to stdout. useful for debugging the wrapping.
             print(out)
         result = self.collate_result(output_filename)
+        self.update_sachdrs(output_filename, result)
         return result
 
+    def update_sachdrs(self, filename, result):
+        '''
+        Updates the sac headers of traces to add measured windows 
+        Parameters
+        ----------
+        result : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        '''
+        for trace in self.st:
+            trace.stats.sac.update({'a':result.WBEG, 'f':result.WEND})
+        self.write_out(filename)
+        #Also 
+        st_corr = obspy.read(f'{self.path}/{filename}_corr.BH?')
+        for trace in st_corr:
+            ch = trace.channel
+            trace.stats.sac.update({'a':result.WBEG, 'f':result.WEND})
+            trace.write(f'{self.path}/{filename}_corr.{ch}', format='SAC', byteorder=1)
+        
+        
     def collate_result(self, fname):
         '''
         Collates meausurement results from SHEBA, allowing them to be used by other functons
