@@ -131,7 +131,7 @@ class Wrapper:
 #               Initialise Windows
             self.initialise_windows(trace)
 
-    def measure_splitting(self,output_filename, sheba_exec_path, window=False, debug=False):
+    def measure_splitting(self,output_filename, sheba_exec_path, nwind=10, window=False, debug=False):
         """
         Measures Shear-wave splitting using Sheba. 
 
@@ -157,7 +157,7 @@ class Wrapper:
                 print('Event Skipped')
                 return
 
-        self.gen_infile(output_filename)
+        self.gen_infile(output_filename, nwind)
         self.write_out(output_filename)
         print(f'Passing {output_filename} into Sheba.')
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path, check=True)
@@ -182,13 +182,13 @@ class Wrapper:
 
         '''
         for trace in self.st:
-            trace.stats.sac.update({'a':result.WBEG, 'f':result.WEND})
+            trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
         self.write_out(filename)
         #Also 
         st_corr = obspy.read(f'{self.path}/{filename}_corr.BH?')
         for trace in st_corr:
-            ch = trace.channel
-            trace.stats.sac.update({'a':result.WBEG, 'f':result.WEND})
+            ch = trace.stats.channel
+            trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
             trace.write(f'{self.path}/{filename}_corr.{ch}', format='SAC', byteorder=1)
         
         
