@@ -166,7 +166,7 @@ class Wrapper:
         if debug:
             # print what sheba returns to stdout. useful for debugging the wrapping.
             print(out)
-        result = collate_result(output_filename)
+        result = collate_result(self.path, output_filename)
         self.update_sachdrs(output_filename, result)
         return result
 
