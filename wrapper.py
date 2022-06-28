@@ -132,7 +132,6 @@ class Wrapper:
             self.initialise_windows(trace)
 
     def measure_splitting(self,output_filename, sheba_exec_path, window=False, nwind=10, debug=False):
->>>>>>> aa19705a895dc8de61a76878c00c7f013b007411
         """
         Measures Shear-wave splitting using Sheba. 
 
