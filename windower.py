@@ -33,6 +33,7 @@ class WindowPicker:
         None.
         '''
         #t0 = 60 seconds before traveltime (aka the start of the trimming seismogram)
+        
         self.st = st # Obspy stream containing BHN and BHE
         # st.plot()
         self.tt = tt
@@ -44,6 +45,7 @@ class WindowPicker:
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
         # Base plot (before interactive stuff)
         fig = plt.figure(figsize = (18,8))
+        plt.suptitle(f'Station {st[0].stats.station}, Event Time {st[0].stats.starttime}')
         gs = gridspec.GridSpec(2,2)
         self.ax1 = plt.subplot(gs[1,:]) # Bottom Row, for window picking
         self.ax2 = plt.subplot(gs[0,:]) # Top Row, for fft plot
@@ -63,7 +65,7 @@ class WindowPicker:
         self.cursorline= self.ax1.axvline(100, linewidth=1, color='0.5', visible=False)
         self.pred_tt= self.ax1.axvline(self.tt, linewidth=1, color='k', visible=True)
         _, self.ydat = self.wbeg1line.get_data()
-
+        
         # set limits
         self.lim_max = max([self.st[0].data.max(), self.st[1].data.max()]) * 1.1
         self.lim_min = min([self.st[0].data.min(), self.st[1].data.min()]) * 1.1
@@ -81,6 +83,7 @@ class WindowPicker:
         print("'a' & 'd' set the window beginnning range")
         print("'z' & 'c' set the window end range")
         self.connect() # Dev only
+        plt.pause(1)
         plt.show()
 
     def plot_fft(self):
@@ -109,8 +112,9 @@ class WindowPicker:
         self.ax2.semilogy(xf[1:N//2], 2.0/N * np.abs(fft_h2[1:N//2]), color='dodgerblue')
         self.ax2.legend([st[0].stats.channel, st[1].stats.channel])
         self.ax2.set_xlabel('Frequency [Hz]')
-        self.ax2.set_xlim([0, 2.0])
+        self.ax2.set_xlim([0.01, 0.5])
         plt.grid()
+
         # plt.show()
 
     def connect(self):
@@ -169,19 +173,19 @@ class WindowPicker:
             self.disconnect()
 
     def enter(self,event):
-        if event.inaxes is not self.ax1: return
+        if event.inaxes is not self.ax2: return
         x = event.xdata
         self.cursorline.set_data([x,x],self.ydat)
         self.cursorline.set_visible(True)
         self.canvas.draw()
 
     def leave(self,event):
-        if event.inaxes is not self.ax1: return
+        if event.inaxes is not self.ax2: return
         self.cursorline.set_visible(False)
         self.canvas.draw()
 
     def motion(self,event):
-        if event.inaxes is not self.ax1: return
+        if event.inaxes is not self.ax2: return
         x = event.xdata
         self.cursorline.set_data([x,x],self.ydat)
         self.canvas.draw()

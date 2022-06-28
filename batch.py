@@ -20,7 +20,7 @@ from wrapper import Wrapper
 
 SHEBA_EXEC = '/Users/ja17375/Ext_Programs/bin'
 
-def measure_event(file, rundir, phase, window=False, debug=False, c1=0.01, c2=0.5):
+def measure_event(file, rundir, phase, window=False, nwind=10, debug=False, c1=0.01, c2=0.5, trim=True):
     '''
     Measures shear-wave splitting for a given event
     
@@ -42,13 +42,13 @@ def measure_event(file, rundir, phase, window=False, debug=False, c1=0.01, c2=0.
     '''
     input_data = obspy.read(file)
     sheba_wrapper = Wrapper(input_data, phase, rundir=rundir)
-    sheba_wrapper.preprocess(c1, c2)
+    sheba_wrapper.preprocess(c1, c2, trim)
     outfile = file.split('.')[0].split('/')[-1]
     # selects just filename with not extentsion or preceding path
-    splitting_result = sheba_wrapper.measure_splitting(outfile, SHEBA_EXEC, window, debug)
+    splitting_result = sheba_wrapper.measure_splitting(outfile, SHEBA_EXEC, window, nwind, debug)
     return splitting_result
 
-def serial_process(filelist, rundir, phases, window=False, debug=False, c1=0.01, c2=0.5):
+def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False, c1=0.01, c2=0.5, trim=True):
     '''
     Measures shear-wave splitting for all files in filelist. Iterates over filelist.
     
@@ -72,14 +72,14 @@ def serial_process(filelist, rundir, phases, window=False, debug=False, c1=0.01,
 
 
     for i, file in enumerate(filelist):
-        res_path = '/Users/ja17375/Projects/DeepMelt/CanadianShield/YKW3/run'
+        #res_path = '/Users/ja17375/Projects/DeepMelt/CanadianShield/YKW3/run'
         res_stem = file.split('/')[-1]
         res_id = res_stem.split('.')[0]
-        if os.path.isfile(f'{res_path}/{res_id}_sheba_result.nc'):
+        if os.path.isfile(f'{rundir}/{res_id}_sheba_result.nc'):
             print('Skipping event - already measured')
         else:
             try:
-                result = measure_event(file, rundir, phases[i], window, debug, c1, c2)
+                result = measure_event(file, rundir, phases[i], window, nwind, debug, c1, c2, trim)
                 results.append(result)
             except ValueError:
                 print(ValueError)

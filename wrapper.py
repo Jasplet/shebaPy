@@ -12,6 +12,7 @@ from netCDF4 import Dataset
 import obspy
 from obspy.taup import TauPyModel
 from windower import WindowPicker
+from correct_waveforms import event_relative_time
 
 # from .plots import plot_traces, plot_pm
 
@@ -94,7 +95,7 @@ class Wrapper:
             trace.stats.sac.cmpinc = 0
             trace.stats.sac.cmpaz = 0
 
-    def preprocess(self,c1=0.01,c2=0.5):
+    def preprocess(self,c1=0.01,c2=0.5, trim=True):
         """
         Function to bandpass filter and trim the components
         Seismograms are trimmed so that they start 1 minute before the expected arrival 
@@ -121,17 +122,17 @@ class Wrapper:
 #       This is to ensure there is enough space for windowing, especially manual windowing. 
 #       This record length makes sense for teleseismic SKS, SKKS, ScS data
 #       but may need revising for other shear-wave data.
-            if (trace.stats.endtime - trace.stats.starttime) > 180.0:
-                print('Trim Traces')
+            if ((trace.stats.endtime - trace.stats.starttime) > 180.0) & trim == True:
                 t1 = (self.tt_utc - 60) #I.e A minute before the arrival
                 t2 = (self.tt_utc + 60) #I.e Two minutes after the arrival
                 trace.trim(t1,t2)
             else:
-                print('Traces too short (<180 s ) to trim')
+                print('Not trimming')
 #               Initialise Windows
             self.initialise_windows(trace)
 
-    def measure_splitting(self,output_filename, sheba_exec_path, window=False, debug=False, nwind=10):
+    def measure_splitting(self,output_filename, sheba_exec_path, window=False, nwind=10, debug=False):
+>>>>>>> aa19705a895dc8de61a76878c00c7f013b007411
         """
         Measures Shear-wave splitting using Sheba. 
 
@@ -143,6 +144,8 @@ class Wrapper:
             path to the compiled SHEBA executable sheba_exec
         window : bool, optional, default=False
             switch to manual windowing (if True) or to use pre-defined windows (False)
+        nwind : int, optional, default=10
+            number of window start/ends to consider in SHEBA cluster analysis. nwind=10 tries 100 combinations
         debug : bool, optional, default=False
             prints out SHEBA stdout when True. Default is False
             
@@ -152,6 +155,7 @@ class Wrapper:
         """
         if window:
             try:
+                print(self.st)
                 self.window_event()
             except ValueError:
                 print('Event Skipped')
@@ -163,7 +167,7 @@ class Wrapper:
         if debug:
             # print what sheba returns to stdout. useful for debugging the wrapping.
             print(out)
-        result = self.collate_result(output_filename)
+        result = collate_result(self.path, output_filename)
         self.update_sachdrs(output_filename, result)
         return result
 
@@ -184,46 +188,12 @@ class Wrapper:
             trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
         self.write_out(filename)
         #Also 
-        st_corr = obspy.read()
-        for ch in ['BHE','BHN','BHZ']:
-            st_corr = obspy.read(f'{self.path}/{filename}_corr.{ch}')
-            st_corr[0].stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
-            st_corr[0].write(f'{self.path}/{filename}_corr.{ch}', format='SAC', byteorder=1)
-        
-        
-    def collate_result(self, fname):
-        '''
-        Collates meausurement results from SHEBA, allowing them to be used by other functons
-        
-        Parameters
-        ----------    
-        fname : str
-            output filestem used by SHEBA
-        
-        Returns
-        ----------
-        result : dict 
-            Shear-wave splitting measurement results and metadata
-        '''
-
-        raw_result = Dataset(f'{self.path}/{fname}_sheba_result.nc')
-        print('Best fitting result is')
-        print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
-        print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
-
-        result = {'STAT':raw_result.station.strip(),
-                'DATE':raw_result.zdate,'TIME':raw_result.ztime.split('.')[0],
-                'STLA':raw_result.stla, 'STLO':raw_result.stlo,
-                'EVLA':raw_result.evla, 'EVLO':raw_result.evlo, 'EVDP':raw_result.evdp,
-                'GCARC':raw_result.gcarc, 'AZI':raw_result.az, 'BAZ':raw_result.baz, 
-                'WBEG':raw_result.wbeg, 'WEND':raw_result.wend, 
-                'FAST':raw_result.fast, 'DFAST':raw_result.dfast,
-                'TLAG':raw_result.tlag, 'DTLAG':raw_result.dtlag,
-                'SI(Pa)':raw_result.intensity_estimated,
-                'SI(Pr)':raw_result.intensity, 'Q':raw_result.qfactor,
-                'SNR':raw_result.snr, 'NDF':raw_result.ndf}
-        return result
-        
+        st_corr = obspy.read(f'{self.path}/{filename}_corr.BH?')
+        for trace in st_corr:
+            ch = trace.stats.channel
+            trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
+            trace.write(f'{self.path}/{filename}_corr.{ch}', format='SAC', byteorder=1)
+                
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
         '''
         Generates the input file needed for the Fortran SHEBA routines.
@@ -266,7 +236,7 @@ class Wrapper:
             ch = trace.stats.channel
             trace.write(f'{self.path}/{filename}.{ch}', format='SAC', byteorder=1)
 
-    def window_event(self):
+    def window_event(self, **kwargs):
         '''
         Function that enables manual picking of window start/end ranges by initialising a 
         WindowPicker object
@@ -276,8 +246,10 @@ class Wrapper:
                                 self.st[0].stats.sac['user0'], self.st[0].stats.sac['user1'],
                                 self.st[0].stats.sac['user2'], self.st[0].stats.sac['user3'],
                                 self.tt_rel)
+
         if Windower.wbeg1 is None:
-            raise ValueError('Skipping event as it is poor quality!')
+           # raise ValueError('Skipping event as it is poor quality!')
+            pass
         else:
             print("Windower Closed, adjusting window ranges")
             windows = {'user0' : Windower.wbeg1, 'user1' : Windower.wbeg2,
@@ -308,6 +280,8 @@ class Wrapper:
                                      minute=self.sacstats['nzmin'],
                                      second=self.sacstats['nzsec'],
                                      microsecond=self.sacstats['nzmsec'])
+        print(evt_time)
+        print(traveltime)
         tt_utc =  evt_time + traveltime
         return tt_utc, traveltime
 
@@ -322,7 +296,13 @@ class Wrapper:
             obspy Trace object to test
         '''
         if all (k in trace.stats.sac for k in ('user0','user1','user2','user3')):
+            user0 = trace.stats.sac['user0']
+            user1 = trace.stats.sac['user1']
+            user2 = trace.stats.sac['user2']
+            user3 = trace.stats.sac['user3']
             print('Pre-defined window ranges found')
+            print(f'a1 =  {user0:4.2f}, f1 = {user1:4.2f}')
+            print(f'a2 =  {user2:4.2f}, f2 = {user3:4.2f}')
         else:
             user0 = self.tt_rel - 15 # 15 seconds before arrival
             user1 = self.tt_rel # t predicted arrival
@@ -331,6 +311,43 @@ class Wrapper:
             user3 = self.tt_rel + 30 # 30 seconds after, gives a max window size of 45 seconds
             keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
             trace.stats.sac.update(keychain)
+
+def collate_result(path, fname):
+        '''
+        Collates meausurement results from SHEBA, allowing them to be used by other functons
+        
+        Parameters
+        ----------  
+        path : str
+            path to run directory with NetCDFs result files to read.
+
+        fname : str
+            output filestem used by SHEBA
+        
+        Returns
+        ----------
+        result : dict 
+            Shear-wave splitting measurement results and metadata
+        '''
+
+        raw_result = Dataset(f'{path}/{fname}_sheba_result.nc')
+        print('Best fitting result is')
+        print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
+        print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
+
+        result = {'STAT':raw_result.station.strip(),
+                'DATE':raw_result.zdate,'TIME':raw_result.ztime.split('.')[0],
+                'STLA':raw_result.stla, 'STLO':raw_result.stlo,
+                'EVLA':raw_result.evla, 'EVLO':raw_result.evlo, 'EVDP':raw_result.evdp,
+                'GCARC':raw_result.gcarc, 'AZI':raw_result.az, 
+                'BAZ':raw_result.baz, 'SPOL':raw_result.spol,
+                'WBEG':raw_result.wbeg, 'WEND':raw_result.wend, 
+                'FAST':raw_result.fast, 'DFAST':raw_result.dfast,
+                'TLAG':raw_result.tlag, 'DTLAG':raw_result.dtlag,
+                'SI(Pa)':raw_result.intensity_estimated,
+                'SI(Pr)':raw_result.intensity, 'Q':raw_result.qfactor,
+                'SNR':raw_result.snr, 'NDF':raw_result.ndf}
+        return result
 
 def check_evdp(trace):
     '''
