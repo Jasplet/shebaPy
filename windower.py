@@ -45,7 +45,12 @@ class WindowPicker:
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
         # Base plot (before interactive stuff)
         fig = plt.figure(figsize = (18,8))
-        plt.suptitle(f'Station {st[0].stats.station}, Event Time {st[0].stats.starttime}')
+        yr = st[0].stats.starttime.year
+        jd = st[0].stats.starttime.julday
+        hr = st[0].stats.starttime.hour
+        mn = st[0].stats.starttime.minute
+        sc = st[0].stats.starttime.second
+        plt.suptitle(f'Station {st[0].stats.station}, Event Time {yr:4d}-{jd:03d} {hr:02d}:{mn:02d}:{sc:02d}')
         gs = gridspec.GridSpec(2,2)
         self.ax1 = plt.subplot(gs[1,:]) # Bottom Row, for window picking
         self.ax2 = plt.subplot(gs[0,:]) # Top Row, for fft plot
@@ -83,7 +88,6 @@ class WindowPicker:
         print("'a' & 'd' set the window beginnning range")
         print("'z' & 'c' set the window end range")
         self.connect() # Dev only
-        plt.pause(1)
         plt.show()
 
     def plot_fft(self):
@@ -199,7 +203,7 @@ class WindowPicker:
         self.canvas.mpl_disconnect(self.cidenter)
         self.canvas.mpl_disconnect(self.cidleave)
         if self.x1 == False:
-            'Bad waveform that we want to skip'
+            print('Bad waveform that we want to skip')
             self.wbeg1, self.wbeg2, self.wend1,self.wend2 = (None,None,None,None)
         else:
             self.wbeg1, self.wbeg2, self.wend1,self.wend2 = sorted((self.x1, self.x2,self.x3,self.x4))
