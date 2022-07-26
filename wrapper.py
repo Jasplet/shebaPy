@@ -248,8 +248,8 @@ class Wrapper:
                                 self.tt_rel)
 
         if Windower.wbeg1 is None:
-           # raise ValueError('Skipping event as it is poor quality!')
-            pass
+            raise ValueError('Skipping event as it is poor quality!')
+            
         else:
             print("Windower Closed, adjusting window ranges")
             windows = {'user0' : Windower.wbeg1, 'user1' : Windower.wbeg2,
