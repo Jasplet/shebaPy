@@ -143,6 +143,8 @@ class Wrapper:
             path to the compiled SHEBA executable sheba_exec
         window : bool, optional, default=False
             switch to manual windowing (if True) or to use pre-defined windows (False)
+        nwind : int, optional, default=10
+            number of window start/ends to consider in SHEBA cluster analysis. nwind=10 tries 100 combinations
         debug : bool, optional, default=False
             prints out SHEBA stdout when True. Default is False
             
@@ -157,9 +159,7 @@ class Wrapper:
             except ValueError:
                 print('Event Skipped')
                 return
-
-
-        self.gen_infile(output_filename, nwind)
+        self.gen_infile(output_filename, nwind=nwind)
         self.write_out(output_filename)
         print(f'Passing {output_filename} into Sheba.')
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path, check=True)
@@ -192,8 +192,7 @@ class Wrapper:
             ch = trace.stats.channel
             trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
             trace.write(f'{self.path}/{filename}_corr.{ch}', format='SAC', byteorder=1)
-        
-        
+                
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
         '''
         Generates the input file needed for the Fortran SHEBA routines.
@@ -249,7 +248,6 @@ class Wrapper:
 
         if Windower.wbeg1 is None:
             raise ValueError('Skipping event as it is poor quality!')
-            
         else:
             print("Windower Closed, adjusting window ranges")
             windows = {'user0' : Windower.wbeg1, 'user1' : Windower.wbeg2,

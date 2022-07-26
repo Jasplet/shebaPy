@@ -44,23 +44,30 @@ class WindowPicker:
         (self.wbeg1,self.wbeg2,self.wend1,self.wend2) = (wbeg1,wbeg2,wend1,wend2)
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
         # Base plot (before interactive stuff)
-        self.fig = plt.figure(figsize = (18,8))
-        plt.suptitle(f'Station {st[0].stats.station}, Event Time {st[0].stats.starttime}')
-        gs = gridspec.GridSpec(2,2)
+        fig = plt.figure(figsize = (14,12))
+        yr = st[0].stats.starttime.year
+        jd = st[0].stats.starttime.julday
+        hr = st[0].stats.starttime.hour
+        mn = st[0].stats.starttime.minute
+        sc = st[0].stats.starttime.second
+        plt.suptitle(f'Station {st[0].stats.station}, Event Time {yr:4d}-{jd:03d} {hr:02d}:{mn:02d}:{sc:02d}')
+        gs = gridspec.GridSpec(3,2)
         self.ax1 = plt.subplot(gs[0,:]) # Top Row, for fft plot
-        self.ax2 = plt.subplot(gs[1,:]) # Bottom Row, for window picking
-        self.plot_fft()
+        self.ax2 = plt.subplot(gs[1,:]) # Middle Row, for window picking
+        self.ax3 = plt.subplot(gs[2,:]) # Bottom row, for envelopes
+	self.plot_fft()
         # Add seismograms
         self.ax2.plot(self.t, self.st[0].data,label=st[0].stats.channel, color='darkorange')
         self.ax2.plot(self.t, self.st[1].data,label=st[1].stats.channel, color='dodgerblue')
-        self.ax2.set_xlabel('Time relative to origin (s)')
+        self.ax3.set_xlabel('Time relative to origin (s)')
         # Add instantaneous amplitude envelopes to help pick out signal (should be envelope max at phase arrival)
         ht1 = hilbert(self.st[0].data)
         env1 = np.abs(ht1)
         ht2 = hilbert(self.st[1].data)
         env2 = np.abs(ht2)
-        self.ax2.plot(self.t, env1, color='darkorange',linestyle='--', label=None)
-        self.ax2.plot(self.t, env2, color='dodgerblue',linestyle='--', label=None)
+        self.ax3.plot(self.t, env1, color='darkorange',linestyle='--', label=None)
+        self.ax3.plot(self.t, env2, color='dodgerblue',linestyle='--', label=None)
+        self.ax3.set_ylabel('Instantaneous amplitude')
         # Add legend
         self.ax2.legend()
         # window limit lines
