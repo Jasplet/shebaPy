@@ -344,6 +344,7 @@ def collate_result(path, fname):
                 'TLAG':raw_result.tlag, 'DTLAG':raw_result.dtlag,
                 'SI(Pa)':raw_result.intensity_estimated,
                 'SI(Pr)':raw_result.intensity, 'Q':raw_result.qfactor,
+                'EIGORIG':raw_result.eigrat_orig, 'EIGCORR': raw_result.eigrat_corr
                 'SNR':raw_result.snr, 'NDF':raw_result.ndf}
         return result
 
