@@ -55,7 +55,7 @@ class WindowPicker:
         self.ax1 = plt.subplot(gs[0,:]) # Top Row, for fft plot
         self.ax2 = plt.subplot(gs[1,:]) # Middle Row, for window picking
         self.ax3 = plt.subplot(gs[2,:]) # Bottom row, for envelopes
-	self.plot_fft()
+        self.plot_fft()
         # Add seismograms
         self.ax2.plot(self.t, self.st[0].data,label=st[0].stats.channel, color='darkorange')
         self.ax2.plot(self.t, self.st[1].data,label=st[1].stats.channel, color='dodgerblue')
