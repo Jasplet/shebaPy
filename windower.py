@@ -44,18 +44,18 @@ class WindowPicker:
         (self.wbeg1,self.wbeg2,self.wend1,self.wend2) = (wbeg1,wbeg2,wend1,wend2)
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
         # Base plot (before interactive stuff)
-        fig = plt.figure(figsize = (14,12))
+        self.fig = plt.figure(figsize = (10,8))
         yr = st[0].stats.starttime.year
         jd = st[0].stats.starttime.julday
         hr = st[0].stats.starttime.hour
         mn = st[0].stats.starttime.minute
         sc = st[0].stats.starttime.second
         plt.suptitle(f'Station {st[0].stats.station}, Event Time {yr:4d}-{jd:03d} {hr:02d}:{mn:02d}:{sc:02d}')
-        gs = gridspec.GridSpec(3,2)
-        self.ax1 = plt.subplot(gs[0,:]) # Top Row, for fft plot
-        self.ax2 = plt.subplot(gs[1,:]) # Middle Row, for window picking
-        self.ax3 = plt.subplot(gs[2,:]) # Bottom row, for envelopes
-        self.plot_fft()
+        gs = gridspec.GridSpec(2,2)
+        #self.ax1 = plt.subplot(gs[0,:]) # Top Row, for fft plot
+        self.ax2 = plt.subplot(gs[0,:]) # Middle Row, for window picking
+        self.ax3 = plt.subplot(gs[1,:]) # Bottom row, for envelopes
+        #self.plot_fft()
         # Add seismograms
         self.ax2.plot(self.t, self.st[0].data,label=st[0].stats.channel, color='darkorange')
         self.ax2.plot(self.t, self.st[1].data,label=st[1].stats.channel, color='dodgerblue')
@@ -85,6 +85,7 @@ class WindowPicker:
         # self.ax1.set_aspect('equal')
         self.ax2.set_ylim([self.lim_min,self.lim_max])
         self.ax2.set_xlim(t0,max(self.t)) # Set ylim in relative time (from stsrt of stream )
+        self.ax3.set_xlim(t0,max(self.t))
         # Add some labels
         self.phaselabel = self.ax2.text(self.tt + 1,
                                         self.lim_max*0.8,"IASP91\nPred.\nArrival",
@@ -96,6 +97,7 @@ class WindowPicker:
         print("'a' & 'd' set the window beginnning range")
         print("'z' & 'c' set the window end range")
         self.connect()
+        plt.tight_layout()
         plt.show()
 
     def plot_fft(self):
