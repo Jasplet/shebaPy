@@ -76,7 +76,11 @@ class WindowPicker:
         self.wend1line = self.ax2.axvline(self.wend1, linewidth=2, color='g', visible=True)
         self.wend2line = self.ax2.axvline(self.wend2, linewidth=2, color='g', visible=True)
         self.cursorline= self.ax2.axvline(100, linewidth=1, color='0.5', visible=False)
-        self.pred_tt= self.ax2.axvline(self.tt, linewidth=1, color='k', visible=True)
+        if 't1' in st[0].stats.sac:
+            print('Plot existng SKS pick')
+            self.pred_tt = self.ax2.axvline(st[0].stats.sac['t1'],linewidth=1, color='k', visible=True)
+        else:
+            self.pred_tt= self.ax2.axvline(self.tt, linewidth=1, color='k', visible=True)
         _, self.ydat = self.wbeg1line.get_data()
         
         # set limits
