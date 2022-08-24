@@ -12,7 +12,6 @@ from netCDF4 import Dataset
 import obspy
 from obspy.taup import TauPyModel
 from windower import WindowPicker
-from correct_waveforms import event_relative_time
 
 # from .plots import plot_traces, plot_pm
 
@@ -70,7 +69,6 @@ class Wrapper:
 #       with emtpy character fill with whitespaces
 #       Do some basic data QA
         if phase != 'Synth':
-            print(phase)
             check_phase_dist(phase, self.sacstats['gcarc'])
             check_evdp(trace)
             self.tt_utc, self.tt_rel = self.model_traveltimes()
@@ -154,14 +152,14 @@ class Wrapper:
         """
         if window:
             try:
-                print(self.st)
+                #print(self.st)
                 self.window_event()
             except ValueError:
                 print('Event Skipped')
                 return
         self.gen_infile(output_filename, nwind=nwind)
         self.write_out(output_filename)
-        print(f'Passing {output_filename} into Sheba.')
+        #print(f'Passing {output_filename} into Sheba.')
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path, check=True)
         if debug:
             # print what sheba returns to stdout. useful for debugging the wrapping.
@@ -271,16 +269,18 @@ class Wrapper:
         tt = model.get_travel_times((self.sacstats['evdp']),
                                      self.sacstats['gcarc'],
                                      [self.phase])  
-        traveltime = tt[0].time
+        print(self.sacstats['evdp'], self.sacstats['gcarc'])
+        traveltime = tt[0].time + self.st[0].stats.sac['o']
         evt_time = obspy.UTCDateTime(year = self.sacstats['nzyear'],
                                      julday = self.sacstats['nzjday'],
                                      hour=self.sacstats['nzhour'],
                                      minute=self.sacstats['nzmin'],
                                      second=self.sacstats['nzsec'],
                                      microsecond=self.sacstats['nzmsec'])
-        print(evt_time)
+        
+        tt_utc =  evt_time + traveltime 
+        print(tt_utc)
         print(traveltime)
-        tt_utc =  evt_time + traveltime
         return tt_utc, traveltime
 
     def initialise_windows(self, trace):
@@ -329,9 +329,9 @@ def collate_result(path, fname):
         '''
 
         raw_result = Dataset(f'{path}/{fname}_sheba_result.nc')
-        print('Best fitting result is')
-        print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
-        print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
+        # print('Best fitting result is')
+        # print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
+        # print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
 
         result = {'STAT':raw_result.station.strip(),
                 'DATE':raw_result.zdate,'TIME':raw_result.ztime.split('.')[0],
@@ -344,9 +344,23 @@ def collate_result(path, fname):
                 'TLAG':raw_result.tlag, 'DTLAG':raw_result.dtlag,
                 'SI(Pa)':raw_result.intensity_estimated,
                 'SI(Pr)':raw_result.intensity, 'Q':raw_result.qfactor,
-                'EIGORIG':raw_result.eigrat_orig, 'EIGCORR': raw_result.eigrat_corr
+                'EIGORIG':raw_result.eigrat_orig, 'EIGCORR': raw_result.eigrat_corr,
                 'SNR':raw_result.snr, 'NDF':raw_result.ndf}
         return result
+
+def event_relative_time(st_stats):
+    '''
+    Use SAC headers
+    
+    '''
+    start = st_stats.starttime 
+    sacstat = st_stats.sac
+    
+    startdate = UTCDateTime(start)
+    eventtime = UTCDateTime(year=sacstat['nzyear'], julday=sacstat['nzjday'], hour=sacstat['nzhour'],
+                            minute=sacstat['nzmin'], second=sacstat['nzsec'], microsecond=sacstat['nzmsec'])
+    rel_start = startdate - eventtime
+    return rel_start, eventtime
 
 def check_evdp(trace):
     '''
