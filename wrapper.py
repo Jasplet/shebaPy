@@ -121,7 +121,7 @@ class Wrapper:
 #       This record length makes sense for teleseismic SKS, SKKS, ScS data
 #       but may need revising for other shear-wave data.
             if ((trace.stats.endtime - trace.stats.starttime) > 180.0) & trim == True:
-                t1 = (self.tt_utc - 120) #I.e A minute before the arrival
+                t1 = (self.tt_utc - 60) #I.e A minute before the arrival
                 t2 = (self.tt_utc + 120) #I.e Two minutes after the arrival
                 trace.trim(t1,t2)
             else:
@@ -265,18 +265,21 @@ class Wrapper:
         traveltime :
             predicted arrival time as seconds after event origin time
         """
-        model = TauPyModel(model="iasp91")
-        tt = model.get_travel_times((self.sacstats['evdp']),
-                                     self.sacstats['gcarc'],
-                                     [self.phase])  
-        print(self.sacstats['evdp'], self.sacstats['gcarc'])
-        traveltime = tt[0].time
         evt_time = obspy.UTCDateTime(year = self.sacstats['nzyear'],
                                      julday = self.sacstats['nzjday'],
                                      hour=self.sacstats['nzhour'],
                                      minute=self.sacstats['nzmin'],
                                      second=self.sacstats['nzsec'],
                                      microsecond=self.sacstats['nzmsec'])
+        if 't1' in self.sacstats:
+            # pick exists and is stored in sac headers
+            traveltime = self.sacstats['t1']
+        else:  
+            model = TauPyModel(model="iasp91")
+            tt = model.get_travel_times((self.sacstats['evdp']),
+                                         self.sacstats['gcarc'],
+                                         [self.phase])  
+            traveltime = tt[0].time
         
         tt_utc =  evt_time + traveltime + self.st[0].stats.sac['o']
         print(tt_utc)
