@@ -121,8 +121,8 @@ class Wrapper:
 #       This record length makes sense for teleseismic SKS, SKKS, ScS data
 #       but may need revising for other shear-wave data.
             if ((trace.stats.endtime - trace.stats.starttime) > 180.0) & trim == True:
-                t1 = (self.tt_utc - 60) #I.e A minute before the arrival
-                t2 = (self.tt_utc + 60) #I.e Two minutes after the arrival
+                t1 = (self.tt_utc - 120) #I.e A minute before the arrival
+                t2 = (self.tt_utc + 120) #I.e Two minutes after the arrival
                 trace.trim(t1,t2)
             else:
                 print('Not trimming')
@@ -185,7 +185,7 @@ class Wrapper:
             trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
         self.write_out(filename)
         #Also 
-        st_corr = obspy.read(f'{self.path}/{filename}_corr.BH?')
+        st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?')
         for trace in st_corr:
             ch = trace.stats.channel
             trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
@@ -270,7 +270,7 @@ class Wrapper:
                                      self.sacstats['gcarc'],
                                      [self.phase])  
         print(self.sacstats['evdp'], self.sacstats['gcarc'])
-        traveltime = tt[0].time + self.st[0].stats.sac['o']
+        traveltime = tt[0].time
         evt_time = obspy.UTCDateTime(year = self.sacstats['nzyear'],
                                      julday = self.sacstats['nzjday'],
                                      hour=self.sacstats['nzhour'],
@@ -278,7 +278,7 @@ class Wrapper:
                                      second=self.sacstats['nzsec'],
                                      microsecond=self.sacstats['nzmsec'])
         
-        tt_utc =  evt_time + traveltime 
+        tt_utc =  evt_time + traveltime + self.st[0].stats.sac['o']
         print(tt_utc)
         print(traveltime)
         return tt_utc, traveltime
