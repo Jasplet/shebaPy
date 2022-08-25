@@ -36,6 +36,9 @@ class WindowPicker:
         #t0 = 60 seconds before traveltime (aka the start of the trimming seismogram)
         self.st = st # Obspy stream containing BHN and BHE
         # st.plot()
+        # if 't1' in st[0].stats.sac:
+        #     self.tt = st[0].stats.sac['t1']
+        # else:
         self.tt = tt
         t0 = tt - 60
         self.delta = st[0].stats.delta
@@ -45,12 +48,13 @@ class WindowPicker:
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
         # Base plot (before interactive stuff)
         self.fig = plt.figure(figsize = (10,8))
-        yr = st[0].stats.starttime.year
-        jd = st[0].stats.starttime.julday
-        hr = st[0].stats.starttime.hour
-        mn = st[0].stats.starttime.minute
-        sc = st[0].stats.starttime.second
-        plt.suptitle(f'Station {st[0].stats.station}, Event Time {yr:4d}-{jd:03d} {hr:02d}:{mn:02d}:{sc:02d}')
+        yr = st[0].stats.sac['nzyear']
+        jd = st[0].stats.sac['nzjday']
+        hr = st[0].stats.sac['nzhour']
+        mn = st[0].stats.sac['nzmin']
+        sc = st[0].stats.sac['nzsec']
+        ms = st[0].stats.sac['nzmsec']
+        plt.suptitle(f'Station {st[0].stats.station}, Event Time {yr:4d}-{jd:03d} {hr:02d}:{mn:02d}:{sc:02d}.{ms:3d}')
         gs = gridspec.GridSpec(2,2)
         #self.ax1 = plt.subplot(gs[0,:]) # Top Row, for fft plot
         self.ax2 = plt.subplot(gs[0,:]) # Middle Row, for window picking
@@ -77,10 +81,10 @@ class WindowPicker:
         self.wend2line = self.ax2.axvline(self.wend2, linewidth=2, color='g', visible=True)
         self.cursorline= self.ax2.axvline(100, linewidth=1, color='0.5', visible=False)
         if 't1' in st[0].stats.sac:
-            print('Plot existng SKS pick')
-            self.pred_tt = self.ax2.axvline(st[0].stats.sac['t1'],linewidth=1, color='k', visible=True)
+            self.pred_tt= self.ax2.axvline(st[0].stats.sac['t1'], linewidth=1, color='k', visible=True)
         else:
             self.pred_tt= self.ax2.axvline(self.tt, linewidth=1, color='k', visible=True)
+
         _, self.ydat = self.wbeg1line.get_data()
         
         # set limits
