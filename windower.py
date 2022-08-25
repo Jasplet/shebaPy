@@ -42,7 +42,7 @@ class WindowPicker:
         self.tt = tt
         t0 = tt - 60
         self.delta = st[0].stats.delta
-        self.t = [t0 + self.delta*i for i,v in enumerate(self.st[0].data)]
+        self.t = t0 + st[0].times()
         # make initial window ranges attributes
         (self.wbeg1,self.wbeg2,self.wend1,self.wend2) = (wbeg1,wbeg2,wend1,wend2)
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
@@ -80,10 +80,8 @@ class WindowPicker:
         self.wend1line = self.ax2.axvline(self.wend1, linewidth=2, color='g', visible=True)
         self.wend2line = self.ax2.axvline(self.wend2, linewidth=2, color='g', visible=True)
         self.cursorline= self.ax2.axvline(100, linewidth=1, color='0.5', visible=False)
-        if 't1' in st[0].stats.sac:
-            self.pred_tt= self.ax2.axvline(st[0].stats.sac['t1'], linewidth=1, color='k', visible=True)
-        else:
-            self.pred_tt= self.ax2.axvline(self.tt, linewidth=1, color='k', visible=True)
+
+        self.pred_tt= self.ax2.axvline(self.tt, linewidth=1, color='k', visible=True)
 
         _, self.ydat = self.wbeg1line.get_data()
         
