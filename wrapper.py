@@ -12,7 +12,6 @@ from netCDF4 import Dataset
 import obspy
 from obspy.taup import TauPyModel
 from windower import WindowPicker
-from correct_waveforms import event_relative_time
 
 # from .plots import plot_traces, plot_pm
 
@@ -70,7 +69,6 @@ class Wrapper:
 #       with emtpy character fill with whitespaces
 #       Do some basic data QA
         if phase != 'Synth':
-            print(phase)
             check_phase_dist(phase, self.sacstats['gcarc'])
             check_evdp(trace)
             self.tt_utc, self.tt_rel = self.model_traveltimes()
@@ -124,7 +122,7 @@ class Wrapper:
 #       but may need revising for other shear-wave data.
             if ((trace.stats.endtime - trace.stats.starttime) > 180.0) & trim == True:
                 t1 = (self.tt_utc - 60) #I.e A minute before the arrival
-                t2 = (self.tt_utc + 60) #I.e Two minutes after the arrival
+                t2 = (self.tt_utc + 120) #I.e Two minutes after the arrival
                 trace.trim(t1,t2)
             else:
                 print('Not trimming')
@@ -154,14 +152,14 @@ class Wrapper:
         """
         if window:
             try:
-                print(self.st)
+                #print(self.st)
                 self.window_event()
             except ValueError:
                 print('Event Skipped')
                 return
         self.gen_infile(output_filename, nwind=nwind)
         self.write_out(output_filename)
-        print(f'Passing {output_filename} into Sheba.')
+        #print(f'Passing {output_filename} into Sheba.')
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path, check=True)
         if debug:
             # print what sheba returns to stdout. useful for debugging the wrapping.
@@ -187,7 +185,7 @@ class Wrapper:
             trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
         self.write_out(filename)
         #Also 
-        st_corr = obspy.read(f'{self.path}/{filename}_corr.BH?')
+        st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?')
         for trace in st_corr:
             ch = trace.stats.channel
             trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
@@ -267,20 +265,25 @@ class Wrapper:
         traveltime :
             predicted arrival time as seconds after event origin time
         """
-        model = TauPyModel(model="iasp91")
-        tt = model.get_travel_times((self.sacstats['evdp']),
-                                     self.sacstats['gcarc'],
-                                     [self.phase])  
-        traveltime = tt[0].time
         evt_time = obspy.UTCDateTime(year = self.sacstats['nzyear'],
                                      julday = self.sacstats['nzjday'],
                                      hour=self.sacstats['nzhour'],
                                      minute=self.sacstats['nzmin'],
                                      second=self.sacstats['nzsec'],
                                      microsecond=self.sacstats['nzmsec'])
-        print(evt_time)
+        if 't1' in self.sacstats:
+            # pick exists and is stored in sac headers
+            traveltime = self.sacstats['t1']
+        else:  
+            model = TauPyModel(model="iasp91")
+            tt = model.get_travel_times((self.sacstats['evdp']),
+                                         self.sacstats['gcarc'],
+                                         [self.phase])  
+            traveltime = tt[0].time
+        
+        tt_utc =  evt_time + traveltime + self.st[0].stats.sac['o']
+        print(tt_utc)
         print(traveltime)
-        tt_utc =  evt_time + traveltime
         return tt_utc, traveltime
 
     def initialise_windows(self, trace):
@@ -329,9 +332,9 @@ def collate_result(path, fname):
         '''
 
         raw_result = Dataset(f'{path}/{fname}_sheba_result.nc')
-        print('Best fitting result is')
-        print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
-        print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
+        # print('Best fitting result is')
+        # print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
+        # print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
 
         result = {'STAT':raw_result.station.strip(),
                 'DATE':raw_result.zdate,'TIME':raw_result.ztime.split('.')[0],
@@ -347,6 +350,20 @@ def collate_result(path, fname):
                 'EIGORIG':raw_result.eigrat_orig, 'EIGCORR': raw_result.eigrat_corr,
                 'SNR':raw_result.snr, 'NDF':raw_result.ndf}
         return result
+
+def event_relative_time(st_stats):
+    '''
+    Use SAC headers
+    
+    '''
+    start = st_stats.starttime 
+    sacstat = st_stats.sac
+    
+    startdate = UTCDateTime(start)
+    eventtime = UTCDateTime(year=sacstat['nzyear'], julday=sacstat['nzjday'], hour=sacstat['nzhour'],
+                            minute=sacstat['nzmin'], second=sacstat['nzsec'], microsecond=sacstat['nzmsec'])
+    rel_start = startdate - eventtime
+    return rel_start, eventtime
 
 def check_evdp(trace):
     '''
