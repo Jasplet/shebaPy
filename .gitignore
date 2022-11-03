@@ -132,3 +132,6 @@ dmypy.json
 HKT_example*
 sheba.in
 sheba.result
+
+#DS_store
+*.DS_Store
