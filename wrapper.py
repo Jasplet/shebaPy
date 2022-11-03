@@ -271,10 +271,11 @@ class Wrapper:
                                      minute=self.sacstats['nzmin'],
                                      second=self.sacstats['nzsec'],
                                      microsecond=self.sacstats['nzmsec'])
-        if 't1' in self.sacstats:
+        if ('t1' in self.sacstats) & (self.phase == 'SKS'):
             # pick exists and is stored in sac headers
             traveltime = self.sacstats['t1']
-        else:  
+        else:
+            print(f'Use TauP to predict {self.phase} arrival time') 
             model = TauPyModel(model="iasp91")
             tt = model.get_travel_times((self.sacstats['evdp']),
                                          self.sacstats['gcarc'],
