@@ -72,7 +72,6 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
 
 
     for i, file in enumerate(filelist):
-        #res_path = '/Users/ja17375/Projects/DeepMelt/CanadianShield/YKW3/run'
         res_stem = file.split('/')[-1]
         res_id = res_stem.split('.')[0]
         if os.path.isfile(f'{rundir}/{res_id}_sheba_result.nc'):
