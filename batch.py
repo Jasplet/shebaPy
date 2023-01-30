@@ -79,7 +79,9 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
         else:
             try:
                 result = measure_event(file, rundir, phases[i], window, nwind, debug, c1, c2, trim)
-                results.append(result)
+                if result is not None:
+                    #Only append full Dicts!
+                    results.append(result)
             except ValueError:
                 print(ValueError)
 
