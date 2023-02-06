@@ -11,6 +11,7 @@ import subprocess as sub
 from netCDF4 import Dataset
 import obspy
 from obspy.taup import TauPyModel
+from obspy import UTCDateTime
 from windower import WindowPicker
 
 # from .plots import plot_traces, plot_pm
@@ -314,7 +315,7 @@ class Wrapper:
             keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
             trace.stats.sac.update(keychain)
 
-def collate_result(path, fname):
+def collate_result(path=None, fname=None, full_file=None):
         '''
         Collates meausurement results from SHEBA, allowing them to be used by other functons
         
@@ -331,8 +332,11 @@ def collate_result(path, fname):
         result : dict 
             Shear-wave splitting measurement results and metadata
         '''
-
-        raw_result = Dataset(f'{path}/{fname}_sheba_result.nc')
+        if full_file is None:
+            raw_result = Dataset(f'{path}/{fname}_sheba_result.nc')
+        elif (path is None) and (fname is None):
+            print(full_file)
+            raw_result = Dataset(full_file)
         # print('Best fitting result is')
         # print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
         # print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
