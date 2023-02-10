@@ -75,7 +75,17 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
         res_stem = file.split('/')[-1]
         res_id = res_stem.split('.')[0]
         if os.path.isfile(f'{rundir}/{res_id}_sheba_result.nc'):
-            print('Skipping event - already measured')
+            if remeasure:
+                # If we want to remeasure existing data
+                rem_file = f'{rundir}/{res_id}.BH?'
+                try:
+                    result = measure_event(rem_file, rundir, phases[i], nwind, c1, c2, trim=False)
+                    if result is not None:
+                        results.append(result)
+                except ValueError:
+                    print(ValueError)
+            else:
+                print('Skipping event - already measured')
         else:
             try:
                 result = measure_event(file, rundir, phases[i], window, nwind, debug, c1, c2, trim)
