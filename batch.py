@@ -48,7 +48,7 @@ def measure_event(file, rundir, phase, window=False, nwind=10, debug=False, c1=0
     splitting_result = sheba_wrapper.measure_splitting(outfile, SHEBA_EXEC, window, nwind, debug)
     return splitting_result
 
-def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False, c1=0.01, c2=0.5, trim=True):
+def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False, c1=0.01, c2=0.5, trim=True, remeasure=False):
     '''
     Measures shear-wave splitting for all files in filelist. Iterates over filelist.
     
@@ -75,7 +75,16 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
         res_stem = file.split('/')[-1]
         res_id = res_stem.split('.')[0]
         if os.path.isfile(f'{rundir}/{res_id}_sheba_result.nc'):
-            print('Skipping event - already measured')
+            if remeasure:
+                try:
+                    result = measure_event(file, rundir, phases[i], window, nwind, debug, c1, c2, trim)
+                    if result is not None:
+                        #Only append full Dicts!
+                        results.append(result)
+                except ValueError:
+                    print(ValueError)
+            else: 
+                print('Skipping event - already measured')
         else:
             try:
                 result = measure_event(file, rundir, phases[i], window, nwind, debug, c1, c2, trim)
