@@ -307,11 +307,18 @@ class Wrapper:
             print(f'a1 =  {user0:4.2f}, f1 = {user1:4.2f}')
             print(f'a2 =  {user2:4.2f}, f2 = {user3:4.2f}')
         else:
-            user0 = self.tt_rel - 15 # 15 seconds before arrival
-            user1 = self.tt_rel # t predicted arrival
-#           Set the range of window endtime (user2/user3)
-            user2 = self.tt_rel + 15 # 15 seconds after, gives a min window size of 20 seconds
-            user3 = self.tt_rel + 30 # 30 seconds after, gives a max window size of 45 seconds
+            if self.phase == 'Synth':
+                #Synthetics have predefined windows at 'a'  and 'f'
+                user0 = trace.stats.sac['a'] - 5
+                user1 = trace.stats.sac['a'] + 5
+                user2 = trace.stats.sac['f'] - 5
+                user3 = trace.stats.sac['f'] + 5
+            else:
+                user0 = self.tt_rel - 15 # 15 seconds before arrival
+                user1 = self.tt_rel # t predicted arrival
+    #           Set the range of window endtime (user2/user3)
+                user2 = self.tt_rel + 15 # 15 seconds after, gives a min window size of 20 seconds
+                user3 = self.tt_rel + 30 # 30 seconds after, gives a max window size of 45 seconds
             keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
             trace.stats.sac.update(keychain)
 
