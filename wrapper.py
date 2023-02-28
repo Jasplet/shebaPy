@@ -309,10 +309,10 @@ class Wrapper:
         else:
             if self.phase == 'Synth':
                 #Synthetics have predefined windows at 'a'  and 'f'
-                user0 = trace.stats.sac['a'] - 5
-                user1 = trace.stats.sac['a'] + 5
-                user2 = trace.stats.sac['f'] - 5
-                user3 = trace.stats.sac['f'] + 5
+                user0 = trace.stats.sac['a'] - 1
+                user1 = trace.stats.sac['a'] + 1
+                user2 = trace.stats.sac['f'] - 1
+                user3 = trace.stats.sac['f'] + 1
             else:
                 user0 = self.tt_rel - 15 # 15 seconds before arrival
                 user1 = self.tt_rel # t predicted arrival
