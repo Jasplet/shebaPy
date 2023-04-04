@@ -17,7 +17,7 @@ import os
 # import contextlib
 #Local import within package
 from wrapper import Wrapper
-
+from wrapper import collate_result
 SHEBA_EXEC = '/Users/ja17375/Ext_Programs/bin'
 
 def measure_event(file, rundir, phase, window=False, nwind=10, debug=False, c1=0.01, c2=0.5, trim=True):
@@ -85,6 +85,7 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
                     print(ValueError)
             else: 
                 print('Skipping event - already measured')
+                result = collate_result(rundir, res_id)
         else:
             try:
                 result = measure_event(file, rundir, phases[i], window, nwind, debug, c1, c2, trim)
