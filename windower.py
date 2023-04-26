@@ -43,15 +43,10 @@ class WindowPicker:
             print(st[0].stats.starttime.julday)
             print(st)
             raise ValueError('Not enough traces in st')
-            #Stream object should have 3 channels
-        # st.plot()
-        # if 't1' in st[0].stats.sac:
-        #     self.tt = st[0].stats.sac['t1']
-        # else:
+    
         self.tt = tt
-        t0 = tt - 60
         self.delta = st[0].stats.delta
-        self.t = t0 + st[0].times()
+        self.t = st[0].times() + st[0].stats.sac['b'] + st[0].stats.sac['o']
         # make initial window ranges attributes
         (self.wbeg1,self.wbeg2,self.wend1,self.wend2) = (wbeg1,wbeg2,wend1,wend2)
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
@@ -99,8 +94,8 @@ class WindowPicker:
         self.lim_min = min([self.st[0].data.min(), self.st[1].data.min()]) * 1.1
         # self.ax1.set_aspect('equal')
         self.ax2.set_ylim([self.lim_min,self.lim_max])
-        self.ax2.set_xlim(t0,max(self.t)) # Set ylim in relative time (from stsrt of stream )
-        self.ax3.set_xlim(t0,max(self.t))
+        self.ax2.set_xlim(tt-60,tt+120 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
+        self.ax3.set_xlim(tt-60,tt+120) #max(self.t))
         # Add some labels
         self.phaselabel = self.ax2.text(self.tt + 1,
                                         self.lim_max*0.8,"IASP91\nPred.\nArrival",
