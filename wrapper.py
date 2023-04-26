@@ -274,6 +274,7 @@ class Wrapper:
                                      microsecond=self.sacstats['nzmsec'])
         if ('t1' in self.sacstats) & (self.phase == 'SKS'):
             # pick exists and is stored in sac headers
+            print('Use existing pick in t1')
             traveltime = self.sacstats['t1']
         else:
             print(f'Use TauP to predict {self.phase} arrival time') 
@@ -284,6 +285,9 @@ class Wrapper:
             traveltime = tt[0].time
         
         tt_utc =  evt_time + traveltime + self.st[0].stats.sac['o']
+        print(self.st[0].stats.sac['o'])
+
+        print(f'Depth: {self.sacstats["evdp"]}, Epicentral distance: {self.sacstats["gcarc"]}')
         print(tt_utc)
         print(traveltime)
         return tt_utc, traveltime
@@ -303,9 +307,9 @@ class Wrapper:
             user1 = trace.stats.sac['user1']
             user2 = trace.stats.sac['user2']
             user3 = trace.stats.sac['user3']
-            print('Pre-defined window ranges found')
-            print(f'a1 =  {user0:4.2f}, f1 = {user1:4.2f}')
-            print(f'a2 =  {user2:4.2f}, f2 = {user3:4.2f}')
+            # print('Pre-defined window ranges found')
+            # print(f'a1 =  {user0:4.2f}, f1 = {user1:4.2f}')
+            # print(f'a2 =  {user2:4.2f}, f2 = {user3:4.2f}')
         else:
             if self.phase == 'Synth':
                 #Synthetics have predefined windows at 'a'  and 'f'
