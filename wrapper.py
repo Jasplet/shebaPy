@@ -84,13 +84,13 @@ class Wrapper:
         Fixes the sac headers cmpinc, cmpaz for BHE,BHN, BHZ channels. If data is 
         downlaoded directly from the IRIS DMC then these SAC headers are missing
         """
-        if trace.stats.channel == 'BHE':
+        if (trace.stats.channel == 'BHE') or (trace.stats.channel == 'HHE'):
             trace.stats.sac.cmpinc = 90
             trace.stats.sac.cmpaz = 90
-        elif trace.stats.channel == 'BHN':
+        elif (trace.stats.channel == 'BHN') or (trace.stats.channel == 'HHN'):
             trace.stats.sac.cmpinc = 90
             trace.stats.sac.cmpaz = 0
-        elif trace.stats.channel == 'BHZ': 
+        elif (trace.stats.channel == 'BHZ') or (trace.stats.channel == 'HHZ'): 
             trace.stats.sac.cmpinc = 0
             trace.stats.sac.cmpaz = 0
 
@@ -130,7 +130,7 @@ class Wrapper:
 #               Initialise Windows
             self.initialise_windows(trace)
 
-    def measure_splitting(self,output_filename, sheba_exec_path, window=False, nwind=10, debug=False):
+    def measure_splitting(self,output_filename, sheba_exec_path, window=False, nwind=10, tlag_max=4.0, debug=False):
         """
         Measures Shear-wave splitting using Sheba. 
 
@@ -152,15 +152,15 @@ class Wrapper:
                 Shear-wave splitting measurement results and metadata
         """
         if window:
-            try:
+            # try:
                 #print(self.st)
-                self.window_event()
-            except ValueError:
-                print('Event Skipped')
-                return
-        self.gen_infile(output_filename, nwind=nwind)
+            self.window_event()
+            # except ValueError:
+        #         print('Event Skipped')
+        #         return
+        self.gen_infile(output_filename, nwind=nwind, tlag_max=tlag_max)
         self.write_out(output_filename)
-        #print(f'Passing {output_filename} into Sheba.')
+        print(f'Passing {output_filename} into Sheba.')
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path, check=True)
         if debug:
             # print what sheba returns to stdout. useful for debugging the wrapping.
@@ -276,6 +276,9 @@ class Wrapper:
             # pick exists and is stored in sac headers
             print('Use existing pick in t1')
             traveltime = self.sacstats['t1']
+        elif ('t2' in self.sacstats) & (self.phase == 'S'):
+            #assuming we have local P and S picks
+            traveltime = self.sacstats['t2'] 
         else:
             print(f'Use TauP to predict {self.phase} arrival time') 
             model = TauPyModel(model="iasp91")
@@ -284,12 +287,8 @@ class Wrapper:
                                          [self.phase])  
             traveltime = tt[0].time
         
-        tt_utc =  evt_time + traveltime + self.st[0].stats.sac['o']
-        print(self.st[0].stats.sac['o'])
-
-        print(f'Depth: {self.sacstats["evdp"]}, Epicentral distance: {self.sacstats["gcarc"]}')
-        print(tt_utc)
-        print(traveltime)
+        tt_utc =  evt_time + traveltime #+ self.st[0].stats.sac['o']
+        # print(f'Depth: {self.sacstats["evdp"]}, Epicentral distance: {self.sacstats["gcarc"]}') 
         return tt_utc, traveltime
 
     def initialise_windows(self, trace):
@@ -317,6 +316,11 @@ class Wrapper:
                 user1 = trace.stats.sac['a'] + 1
                 user2 = trace.stats.sac['f'] - 1
                 user3 = trace.stats.sac['f'] + 1
+            elif self.phase == 'S':
+                user0 = self.tt_rel - 0.2
+                user1 = self.tt_rel
+                user2 = self.tt_rel + 0.2 
+                user3 = self.tt_rel + 0.4 
             else:
                 user0 = self.tt_rel - 15 # 15 seconds before arrival
                 user1 = self.tt_rel # t predicted arrival
@@ -411,13 +415,23 @@ def check_phase_dist(phase, gcarc):
     if phase == 'SKS':
         if gcarc > 145.0:
             raise ValueError(f'Event-Station distance {gcarc} is greater than 145, SKS not visible/reliable.')
+        else:
+            return True
     elif phase == 'SKKS':
         if (gcarc < 105.0) or (gcarc > 145.0) :
             raise ValueError(f'Event-Station distance {gcarc} outside of acceptable range of 105-145 for SKKS')
+        else:
+            return True
     elif phase == 'ScS':
         if gcarc > 95.0:
             raise ValueError(f'Event-Station distance {gcarc} greater than acceptable distance of 95 deg for ScS')
+        else:
+            return True
     elif phase == 'Synth':
         print('Skip test for synthetics')
+        return True
+    elif phase == 'S':
+        print('Skip test for local S')
+        return True
     else:
         print(f'Phase {phase} not ScS, SKS or SKKS. Not checking!')

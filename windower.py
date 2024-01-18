@@ -38,6 +38,8 @@ class WindowPicker:
         chs = [tr.stats.channel for tr in st]
         if ('BHN' in chs) and ('BHE' in chs) and ('BHZ' in chs):
             pass
+        elif ('HHN' in chs) and ('HHE' in chs) and ('HHZ' in chs):
+            pass
         else:
             print(st[0].stats.starttime.year)
             print(st[0].stats.starttime.julday)
@@ -46,7 +48,7 @@ class WindowPicker:
     
         self.tt = tt
         self.delta = st[0].stats.delta
-        self.t = st[0].times() + st[0].stats.sac['b'] + st[0].stats.sac['o']
+        self.t = st[0].times() + st[0].stats.sac['b'] #+ st[0].stats.sac['o']
         # make initial window ranges attributes
         (self.wbeg1,self.wbeg2,self.wend1,self.wend2) = (wbeg1,wbeg2,wend1,wend2)
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
@@ -59,11 +61,11 @@ class WindowPicker:
         sc = st[0].stats.sac['nzsec']
         ms = st[0].stats.sac['nzmsec']
         plt.suptitle(f'Station {st[0].stats.station}, Event Time {yr:4d}-{jd:03d} {hr:02d}:{mn:02d}:{sc:02d}.{ms:3d}')
-        gs = gridspec.GridSpec(2,2)
-        #self.ax1 = plt.subplot(gs[0,:]) # Top Row, for fft plot
-        self.ax2 = plt.subplot(gs[0,:]) # Middle Row, for window picking
-        self.ax3 = plt.subplot(gs[1,:]) # Bottom row, for envelopes
-        #self.plot_fft()
+        gs = gridspec.GridSpec(3,2)
+        self.ax1 = plt.subplot(gs[0,:]) # Top Row, for fft plot
+        self.ax2 = plt.subplot(gs[1,:]) # Middle Row, for window picking
+        self.ax3 = plt.subplot(gs[2,:]) # Bottom row, for envelopes
+        self.plot_fft()
         # Add seismograms
         self.ax2.plot(self.t, self.st[0].data,label=st[0].stats.channel, color='darkorange')
         self.ax2.plot(self.t, self.st[1].data,label=st[1].stats.channel, color='dodgerblue')
@@ -83,9 +85,9 @@ class WindowPicker:
         self.wbeg2line = self.ax2.axvline(self.wbeg2, linewidth=2, color='r', visible=True)
         self.wend1line = self.ax2.axvline(self.wend1, linewidth=2, color='g', visible=True)
         self.wend2line = self.ax2.axvline(self.wend2, linewidth=2, color='g', visible=True)
-        self.cursorline= self.ax2.axvline(100, linewidth=1, color='0.5', visible=False)
+        self.cursorline= self.ax2.axvline(self.tt, linewidth=1, color='0.5', visible=False)
 
-        self.pred_tt= self.ax2.axvline(self.tt, linewidth=1, color='k', visible=True)
+        self.pred_tt= self.ax2.axvline(self.tt, linewidth=2, color='k', visible=True)
 
         _, self.ydat = self.wbeg1line.get_data()
         
@@ -93,21 +95,21 @@ class WindowPicker:
         self.lim_max = max([self.st[0].data.max(), self.st[1].data.max()]) * 1.1
         self.lim_min = min([self.st[0].data.min(), self.st[1].data.min()]) * 1.1
         # self.ax1.set_aspect('equal')
-        self.ax2.set_ylim([self.lim_min,self.lim_max])
-        self.ax2.set_xlim(tt-60,tt+120 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
-        self.ax3.set_xlim(tt-60,tt+120) #max(self.t))
         # Add some labels
-        self.phaselabel = self.ax2.text(self.tt + 1,
-                                        self.lim_max*0.8,"IASP91\nPred.\nArrival",
-                                        multialignment='left')
-        self.wbeg1label = self.ax2.text(self.wbeg1 - 3, self.lim_min*0.85, 'S', color='r', fontsize=14)
-        self.wbeg2label = self.ax2.text(self.wbeg2 - 3, self.lim_min*0.85, 'F', color='r', fontsize=14)
-        self.wend1label = self.ax2.text(self.wend1 - 3, self.lim_min*0.85, 'S', color='g', fontsize=14)
-        self.wend2label = self.ax2.text(self.wend2 - 3, self.lim_min*0.85, 'F', color='g', fontsize=14)
+        # self.phaselabel = self.ax2.text(self.tt + 1,
+        #                                 self.lim_max*0.8,"IASP91\nPred.\nArrival",
+        #                                 multialignment='left')
+        self.wbeg1label = self.ax2.text(self.wbeg1 - 0.25, self.lim_min*0.85, 'S', color='r', fontsize=14)
+        self.wbeg2label = self.ax2.text(self.wbeg2 - 0.25, self.lim_min*0.85, 'F', color='r', fontsize=14)
+        self.wend1label = self.ax2.text(self.wend1 - 0.25, self.lim_min*0.85, 'S', color='g', fontsize=14)
+        self.wend2label = self.ax2.text(self.wend2 - 0.25, self.lim_min*0.85, 'F', color='g', fontsize=14)
+        self.ax2.set_ylim([self.lim_min,self.lim_max])
+        self.ax2.set_xlim(self.tt - 1, self.tt + 1)#max(self.t)) # Set ylim in relative time (from stsrt of stream )
+        self.ax3.set_xlim(self.tt - 1, self.tt + 1) #max(self.t))
         print("'a' & 'd' set the window beginnning range")
         print("'z' & 'c' set the window end range")
         self.connect()
-        plt.tight_layout()
+        # plt.tight_layout()
         plt.show()
 
     def plot_fft(self):
@@ -123,8 +125,6 @@ class WindowPicker:
         N = len(horz1) # number of samples in traces
         if N % 2 !=0:
             N = N -1
-
-        print(N)
         # Set sample spacing in f-domain
         df = 1.0/(2.0*self.delta) # Sample frequency
         xf = np.linspace(0.0,df,int(N/2)) # Frequencies up to F_nyquist (N/2*df)
@@ -136,7 +136,7 @@ class WindowPicker:
         self.ax1.semilogy(xf[1:N//2], 2.0/N * np.abs(fft_h2[1:N//2]), color='dodgerblue')
         self.ax1.legend([st[0].stats.channel, st[1].stats.channel])
         self.ax1.set_xlabel('Frequency [Hz]')
-        self.ax1.set_xlim([0.01, 0.5])
+        self.ax1.set_xlim([0.0, xf.max()])
        
         # plt.show()
 
