@@ -45,7 +45,7 @@ class Wrapper:
     
     
     """
-    def __init__(self,st, phase, rundir=None):
+    def __init__(self,st, phase, rundir=None, **kwargs):
         '''
         Constructs Wrapper for a 3-component waveform
         
@@ -68,11 +68,24 @@ class Wrapper:
             self.fix_cmp_dir(trace)
 #       Formats Station name in headers so that it is 8 characters long,
 #       with emtpy character fill with whitespaces
-#       Do some basic data QA
-        if phase != 'Synth':
-            check_phase_dist(phase, self.sacstats['gcarc'])
-            check_evdp(trace)
-            self.tt_utc, self.tt_rel = self.model_traveltimes()
+
+        if 'wbeg_pre_S' in kwargs:
+            self.wbeg_pre_S = kwargs['wbeg_pre_S']
+        else: 
+            self.wbeg_pre_S = 0.1
+
+        if 'wend_post_S' in kwargs:
+            self.wend_post_S = kwargs['wend_post_S']
+        else:
+            self.wend_post_S = 0.2
+        if 'pick_tol' in kwargs:
+            self.pick_tol = kwargs['pick_tol']
+        else:
+            self.pick_tol = 0.05
+
+        check_phase_dist(phase, self.sacstats['gcarc'])
+        check_evdp(trace)
+        self.tt_utc, self.tt_rel = self.model_traveltimes()
         if rundir is None:
             print('Setting rundir path to current working directory')
             self.path = os.getcwd()
@@ -130,7 +143,7 @@ class Wrapper:
 #               Initialise Windows
             self.initialise_windows(trace)
 
-    def measure_splitting(self,output_filename, sheba_exec_path, window=False, nwind=10, debug=False):
+    def measure_splitting(self,output_filename, sheba_exec_path, window=False, nwind=10, debug=False, **kwargs):
         """
         Measures Shear-wave splitting using Sheba. 
 
@@ -158,7 +171,13 @@ class Wrapper:
             except ValueError:
                 print('Event Skipped')
                 return
-        self.gen_infile(output_filename, nwind=nwind)
+        else:
+            self.auto_window()
+        if 'tlag_max' in kwargs:
+            self.gen_infile(output_filename, nwind=nwind, tlag_max=kwargs['tlag_max'])
+        else:
+            self.gen_infile(output_filename, nwind=nwind)
+
         self.write_out(output_filename)
         #print(f'Passing {output_filename} into Sheba.')
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path, check=True)
@@ -168,7 +187,7 @@ class Wrapper:
         result = collate_result(self.path, output_filename)
         self.update_sachdrs(output_filename, result)
         return result
-
+        
     def update_sachdrs(self, filename, result):
         '''
         Updates the sac headers of traces to add measured windows 
@@ -307,22 +326,12 @@ class Wrapper:
             user1 = trace.stats.sac['user1']
             user2 = trace.stats.sac['user2']
             user3 = trace.stats.sac['user3']
-            # print('Pre-defined window ranges found')
-            # print(f'a1 =  {user0:4.2f}, f1 = {user1:4.2f}')
-            # print(f'a2 =  {user2:4.2f}, f2 = {user3:4.2f}')
         else:
-            if self.phase == 'Synth':
-                #Synthetics have predefined windows at 'a'  and 'f'
-                user0 = trace.stats.sac['a'] - 1
-                user1 = trace.stats.sac['a'] + 1
-                user2 = trace.stats.sac['f'] - 1
-                user3 = trace.stats.sac['f'] + 1
+            if 't2' in trace.stats.sac:
+                user0, user1, user2, user3 = auto_window(trace.stats.sac['t2'], self.wbeg_pre_S, self.wend_post_S, pick_tol=self.pick_tol)
             else:
-                user0 = self.tt_rel - 15 # 15 seconds before arrival
-                user1 = self.tt_rel # t predicted arrival
-    #           Set the range of window endtime (user2/user3)
-                user2 = self.tt_rel + 15 # 15 seconds after, gives a min window size of 20 seconds
-                user3 = self.tt_rel + 30 # 30 seconds after, gives a max window size of 45 seconds
+                user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=15, wend_post_S=15)    
+
             keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
             trace.stats.sac.update(keychain)
 
@@ -421,3 +430,16 @@ def check_phase_dist(phase, gcarc):
         print('Skip test for synthetics')
     else:
         print(f'Phase {phase} not ScS, SKS or SKKS. Not checking!')
+
+def auto_window(S_pick, wbeg_pre_S=0.1, wend_post_S=0.2, pick_tol=0.05):
+        '''
+        Automatically window traces based on an assumed S pick
+        
+        Assumes S pick is in t2 in SAC header
+        '''
+        wbeg1 = S_pick - pick_tol - wbeg_pre_S
+        wbeg2 = S_pick - pick_tol
+        wend1 = S_pick + pick_tol + wend_post_S
+        wend2 = S_pick + pick_tol + wend_post_S + (wbeg2 - wbeg1)
+
+        return wbeg1, wbeg2, wend1, wend2
