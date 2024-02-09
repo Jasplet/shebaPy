@@ -150,8 +150,6 @@ class Wrapper:
 #       This is to ensure there is enough space for windowing, especially manual windowing. 
 #       This record length makes sense for teleseismic SKS, SKKS, ScS data
 #       but may need revising for other shear-wave data.
-            tr.stats.sac['nzmsec'] = np.round(tr.stats.sac['nzmsec'], decimals=1)
-
             if self.teleseismic & trim == True:
                 t1 = (self.tt_utc - 60) #I.e A minute before the arrival
                 t2 = (self.tt_utc + 120) #I.e Two minutes after the arrival
