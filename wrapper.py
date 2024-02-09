@@ -13,6 +13,7 @@ import obspy
 from obspy.taup import TauPyModel
 from obspy import UTCDateTime
 from windower import WindowPicker
+from datetime import timedelta
 
 # from .plots import plot_traces, plot_pm
 
@@ -45,7 +46,7 @@ class Wrapper:
     
     
     """
-    def __init__(self,st, phase, rundir=None, **kwargs):
+    def __init__(self,st, phase, teleseismic, rundir=None, **kwargs):
         '''
         Constructs Wrapper for a 3-component waveform
         
@@ -63,6 +64,7 @@ class Wrapper:
         self.station = st[0].stats.station # station code
         self.delta = st[0].stats.delta # sample rate of seismometer [s]
         self.phase = phase # The shear-wave phase we are measuing splitting for!
+        self.teleseismic = teleseismic # flag for teleseimic v local mode
         for trace in self.st:
             trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
             self.fix_cmp_dir(trace)
@@ -85,7 +87,21 @@ class Wrapper:
 
         check_phase_dist(phase, self.sacstats['gcarc'])
         check_evdp(trace)
-        self.tt_utc, self.tt_rel = self.model_traveltimes()
+        if teleseismic:
+            self.tt_utc, self.tt_rel = self.model_traveltimes()
+            
+        else:
+            self.tt_rel = st[0].stats.sac['t2']
+            rel_msecs = int(st[0].stats.sac['nzmsec']*1e-3)
+            rel_secs = int(st[0].stats.sac['nzsec'])
+            rel_mins = int(st[0].stats.sac['nzmin'])
+            rel_hours= int(st[0].stats.sac['nzhour'])
+            rel_jdays = int(st[0].stats.sac['nzjday'])
+            rel_years = int(st[0].stats.sac['nzyear'])
+            rel_date = obspy.UTCDateTime(year=rel_years, julday=rel_jdays, hour=rel_hours,
+                                                minute=rel_mins, second=rel_secs, microsecond=rel_msecs)
+            self.tt_utc = rel_date + st[0].stats.sac['t2']
+                
         if rundir is None:
             print('Setting rundir path to current working directory')
             self.path = os.getcwd()
@@ -97,13 +113,13 @@ class Wrapper:
         Fixes the sac headers cmpinc, cmpaz for BHE,BHN, BHZ channels. If data is 
         downlaoded directly from the IRIS DMC then these SAC headers are missing
         """
-        if trace.stats.channel == 'BHE':
+        if (trace.stats.channel == 'BHE') or (trace.stats.channel == 'HHE'):
             trace.stats.sac.cmpinc = 90
             trace.stats.sac.cmpaz = 90
-        elif trace.stats.channel == 'BHN':
+        elif (trace.stats.channel == 'BHN') or (trace.stats.channel == 'HHN'):
             trace.stats.sac.cmpinc = 90
             trace.stats.sac.cmpaz = 0
-        elif trace.stats.channel == 'BHZ': 
+        elif (trace.stats.channel == 'BHZ') or (trace.stats.channel == 'HHZ'): 
             trace.stats.sac.cmpinc = 0
             trace.stats.sac.cmpaz = 0
 
@@ -134,14 +150,21 @@ class Wrapper:
 #       This is to ensure there is enough space for windowing, especially manual windowing. 
 #       This record length makes sense for teleseismic SKS, SKKS, ScS data
 #       but may need revising for other shear-wave data.
-            if ((trace.stats.endtime - trace.stats.starttime) > 180.0) & trim == True:
+            tr.stats.sac['nzmsec'] = np.round(tr.stats.sac['nzmsec'], decimals=1)
+
+            if self.teleseismic & trim == True:
                 t1 = (self.tt_utc - 60) #I.e A minute before the arrival
                 t2 = (self.tt_utc + 120) #I.e Two minutes after the arrival
                 trace.trim(t1,t2)
+            elif trim:
+                print('Local trim')
+                t1 = (self.tt_utc - 10)
+                t2 = (self.tt_utc + 10)
             else:
                 print('Not trimming')
 #               Initialise Windows
             self.initialise_windows(trace)
+
 
     def measure_splitting(self,output_filename, sheba_exec_path, window=False, nwind=10, debug=False, **kwargs):
         """
@@ -171,8 +194,7 @@ class Wrapper:
             except ValueError:
                 print('Event Skipped')
                 return
-        else:
-            self.auto_window()
+            
         if 'tlag_max' in kwargs:
             self.gen_infile(output_filename, nwind=nwind, tlag_max=kwargs['tlag_max'])
         else:
