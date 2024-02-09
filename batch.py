@@ -18,7 +18,7 @@ import os
 #Local import within package
 from wrapper import Wrapper
 from wrapper import collate_result
-SHEBA_EXEC = '/Users/ja17375/Ext_Programs/bin'
+SHEBA_EXEC = '/Users/eart0593/Ext_Programs/bin'
 
 def measure_event(file, rundir, phase, window=False, plot=False, nwind=10, debug=False, c1=0.01, c2=0.5, trim=True, **kwargs):
     '''
@@ -59,9 +59,10 @@ def measure_event(file, rundir, phase, window=False, plot=False, nwind=10, debug
         print(f'Earliest window start: {wbeg_pre_S:4.2f}s pre S pick')
         print(f'Earliest window end: {wend_post_S:4.2f}s post S pick')
         print(f'Pick tolerence {pick_tol:4.2f}s')
+    run_teleseism = kwargs['teleseismic']
 
     input_data = obspy.read(file)
-    sheba_wrapper = Wrapper(input_data, phase, rundir=rundir)
+    sheba_wrapper = Wrapper(input_data, phase, rundir=rundir, teleseismic=run_teleseism)
     sheba_wrapper.preprocess(c1, c2, trim)
     outfile = file.split('.')[0].split('/')[-1]
     # selects just filename with not extentsion or preceding path
@@ -109,7 +110,7 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
         remeasure = kwargs['remeasure']
     if 'tlag_max' in kwargs:
         tlag_max = kwargs['tlag_max']
-
+    run_teleseism = kwargs['teleseismic']
     results = []
 
 
@@ -119,7 +120,7 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
         if os.path.isfile(f'{rundir}/{res_id}_sheba_result.nc'):
             if remeasure:
                 try:
-                    result = measure_event(file, rundir, phases[i], window, nwind, debug, c1, c2, trim, tlag_max=tlag_max)
+                    result = measure_event(file, rundir, phases[i], window=window, nwind=nwind, debug=debug, c1=c1, c2=c2, trim=trim, tlag_max=tlag_max, teleseismic=run_teleseism)
                     if result is not None:
                         #Only append full Dicts!
                         results.append(result)
@@ -129,13 +130,12 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
                 print('Skipping event - already measured')
                 result = collate_result(rundir, res_id)
         else:
-            try:
-                result = measure_event(file, rundir, phases[i], window, nwind, debug, c1, c2, trim, tlag_max=tlag_max)
-                if result is not None:
-                    #Only append full Dicts!
-                    results.append(result)
-            except ValueError:
-                print(ValueError)
+            result = measure_event(file, rundir, phases[i], window=window, nwind=nwind, debug=debug, c1=c1, c2=c2, trim=trim, tlag_max=tlag_max, teleseismic=run_teleseism)
+            if result is not None:
+                #Only append full Dicts!
+                results.append(result)
+
+                
 
     result_df = pd.DataFrame(results)
     return result_df
