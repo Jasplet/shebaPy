@@ -13,8 +13,7 @@ import obspy
 from obspy.taup import TauPyModel
 from obspy import UTCDateTime
 from windower import WindowPicker
-from datetime import timedelta
-
+from plots import diagnostic_plot
 # from .plots import plot_traces, plot_pm
 
 class Wrapper:
@@ -65,6 +64,14 @@ class Wrapper:
         self.delta = st[0].stats.delta # sample rate of seismometer [s]
         self.phase = phase # The shear-wave phase we are measuing splitting for!
         self.teleseismic = teleseismic # flag for teleseimic v local mode
+        rel_msecs = int(st[0].stats.sac['nzmsec']*1e-3)
+        rel_secs = int(st[0].stats.sac['nzsec'])
+        rel_mins = int(st[0].stats.sac['nzmin'])
+        rel_hours= int(st[0].stats.sac['nzhour'])
+        rel_jdays = int(st[0].stats.sac['nzjday'])
+        rel_years = int(st[0].stats.sac['nzyear'])
+        self.event_time = obspy.UTCDateTime(year=rel_years, julday=rel_jdays, hour=rel_hours,
+                                                minute=rel_mins, second=rel_secs, microsecond=rel_msecs)
         for trace in self.st:
             trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
             self.fix_cmp_dir(trace)
@@ -87,20 +94,12 @@ class Wrapper:
 
         check_phase_dist(phase, self.sacstats['gcarc'])
         check_evdp(trace)
-        if teleseismic:
-            self.tt_utc, self.tt_rel = self.model_traveltimes()
+        # if teleseismic:
+        self.tt_utc, self.tt_rel = self.model_traveltimes()
             
-        else:
-            self.tt_rel = st[0].stats.sac['t2']
-            rel_msecs = int(st[0].stats.sac['nzmsec']*1e-3)
-            rel_secs = int(st[0].stats.sac['nzsec'])
-            rel_mins = int(st[0].stats.sac['nzmin'])
-            rel_hours= int(st[0].stats.sac['nzhour'])
-            rel_jdays = int(st[0].stats.sac['nzjday'])
-            rel_years = int(st[0].stats.sac['nzyear'])
-            rel_date = obspy.UTCDateTime(year=rel_years, julday=rel_jdays, hour=rel_hours,
-                                                minute=rel_mins, second=rel_secs, microsecond=rel_msecs)
-            self.tt_utc = rel_date + st[0].stats.sac['t2']
+        # elif:
+        #     self.tt_rel = st[0].stats.sac['t2']
+        #     self.tt_utc = self.event_time + st[0].stats.sac['t2']
                 
         if rundir is None:
             print('Setting rundir path to current working directory')
@@ -222,14 +221,14 @@ class Wrapper:
 
         '''
         for trace in self.st:
-            trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
-        self.write_out(filename)
-        #Also 
-        st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?')
-        for trace in st_corr:
             ch = trace.stats.channel
             trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
-            trace.write(f'{self.path}/{filename}_corr.{ch}', format='SAC', byteorder=1)
+            trace.write(f'{self.path}/{filename}.{ch}', format='SAC', byteorder=1)
+            #Also 
+            tr_corr = obspy.read(f'{self.path}/{filename}_corr.{ch}')   
+            tr_corr[0].stats.channel = ch
+            tr_corr[0].stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
+            tr_corr.write(f'{self.path}/{filename}_corr.{ch}', format='SAC', byteorder=1)
                 
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
         '''
@@ -315,16 +314,26 @@ class Wrapper:
             # pick exists and is stored in sac headers
             print('Use existing pick in t1')
             traveltime = self.sacstats['t1']
+        elif ('t2' in self.sacstats) & (self.phase == 'S'):
+            print('Use existing pick in t2')
+            traveltime = self.sacstats['t2']
         else:
             print(f'Use TauP to predict {self.phase} arrival time') 
             model = TauPyModel(model="iasp91")
             tt = model.get_travel_times((self.sacstats['evdp']),
                                          self.sacstats['gcarc'],
-                                         [self.phase])  
+                                         [self.phase])
+            if len(tt) == 0:
+                tt = model.get_travel_times((self.sacstats['evdp']),
+                                         self.sacstats['gcarc'],
+                                         ['s'])
             traveltime = tt[0].time
-        
-        tt_utc =  evt_time + traveltime + self.st[0].stats.sac['o']
-        print(self.st[0].stats.sac['o'])
+
+        if 'o' in self.sacstats:
+            tt_utc =  evt_time + traveltime + self.st[0].stats.sac['o']
+            print(self.st[0].stats.sac['o'])
+        else:
+            tt_utc = evt_time + traveltime
 
         print(f'Depth: {self.sacstats["evdp"]}, Epicentral distance: {self.sacstats["gcarc"]}')
         print(tt_utc)
@@ -341,19 +350,29 @@ class Wrapper:
         trace : 
             obspy Trace object to test
         '''
-        if all (k in trace.stats.sac for k in ('user0','user1','user2','user3')):
+        if all (k in trace.stats.sac for k in ('user0','user1','user2','user3')) & self.teleseismic:
             user0 = trace.stats.sac['user0']
             user1 = trace.stats.sac['user1']
             user2 = trace.stats.sac['user2']
             user3 = trace.stats.sac['user3']
+        elif self.teleseismic:
+            user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=15, wend_post_S=15)  
+        elif 't2' in trace.stats.sac:
+            user0, user1, user2, user3 = auto_window(trace.stats.sac['t2'], self.wbeg_pre_S, self.wend_post_S, pick_tol=self.pick_tol)
         else:
-            if 't2' in trace.stats.sac:
-                user0, user1, user2, user3 = auto_window(trace.stats.sac['t2'], self.wbeg_pre_S, self.wend_post_S, pick_tol=self.pick_tol)
-            else:
-                user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=15, wend_post_S=15)    
+            user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=self.wbeg_pre_S, wend_post_S=self.wend_post_S, pick_tol=self.pick_tol)  
 
-            keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
-            trace.stats.sac.update(keychain)
+        keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
+        trace.stats.sac.update(keychain)
+
+    def plot_result(self, result_nc, filename):
+        '''
+        Creates a diagnostic plot
+        '''
+        st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?') 
+        fig = diagnostic_plot(self.st, st_corr, result)
+        fig.savefig()
+        return 
 
 def collate_result(path=None, fname=None, full_file=None):
         '''
@@ -463,3 +482,4 @@ def auto_window(S_pick, wbeg_pre_S=0.1, wend_post_S=0.2, pick_tol=0.05):
         wend2 = S_pick + pick_tol + wend_post_S + (wbeg2 - wbeg1)
 
         return wbeg1, wbeg2, wend1, wend2
+
