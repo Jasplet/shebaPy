@@ -36,17 +36,20 @@ class WindowPicker:
         #t0 = 60 seconds before traveltime (aka the start of the trimming seismogram)
         self.st = st # Obspy stream containing BHN and BHE
         chs = [tr.stats.channel for tr in st]
-        if ('BHN' in chs) and ('BHE' in chs) and ('BHZ' in chs):
-            pass
-        else:
-            print(st[0].stats.starttime.year)
-            print(st[0].stats.starttime.julday)
-            print(st)
-            raise ValueError('Not enough traces in st')
+        # if ('BHN' in chs) and ('BHE' in chs) and ('BHZ' in chs):
+        #     pass
+        # else:
+        #     print(st[0].stats.starttime.year)
+        #     print(st[0].stats.starttime.julday)
+        #     print(st)
+        #     raise ValueError('Not enough traces in st')
     
         self.tt = tt
         self.delta = st[0].stats.delta
-        self.t = st[0].times() + st[0].stats.sac['b'] + st[0].stats.sac['o']
+        if 'o' in st[0].stats.sac:
+            self.t = st[0].times() + st[0].stats.sac['b'] + st[0].stats.sac['o']
+        else:
+            self.t = st[0].times() + st[0].stats.sac['b'] 
         # make initial window ranges attributes
         (self.wbeg1,self.wbeg2,self.wend1,self.wend2) = (wbeg1,wbeg2,wend1,wend2)
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
