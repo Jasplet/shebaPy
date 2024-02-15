@@ -18,6 +18,7 @@ import os
 #Local import within package
 from wrapper import Wrapper
 from wrapper import collate_result
+
 SHEBA_EXEC = '/Users/eart0593/Ext_Programs/bin'
 
 def measure_event(file, rundir, phase, window=False, plot=False, nwind=10, debug=False, c1=0.01, c2=0.5, trim=True, **kwargs):
