@@ -72,7 +72,7 @@ def measure_event(file, rundir, phase, window=False, plot=False, nwind=10, debug
     else:
         splitting_result = sheba_wrapper.measure_splitting(outfile, SHEBA_EXEC, window, nwind, debug)
     if plot:
-        print('Plotting to be added soon!')
+        sheba_wrapper.plot_result(splitting_result, outfile)
     return splitting_result
 
 def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False, **kwargs):
