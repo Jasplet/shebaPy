@@ -63,7 +63,7 @@ def diagnostic_plot(st, st_corr, result, event_time):
     wind_num = np.arange(0,result.dimensions['window'].size) + 1 #shift to start from 1
     ax5 = fig.add_subplot(gs[2,0:3])
     ax5.errorbar(x=wind_num, y=result.variables['mw_fast'][:], yerr=result.variables['mw_dfast'][:])
-    ax5.errorbar(x=wind_num, y=result.variables['mw_fast'][result.best_window-1],
+    ax5.errorbar(x=wind_num[result.best_window-1], y=result.variables['mw_fast'][result.best_window-1],
                 yerr=result.variables['mw_dfast'][result.best_window-1], color='tab_red')
     ax5.set_ylim([phis.min(),phis.max()])
     ax5.set_ylabel(r'$\phi_f$ [°]')
