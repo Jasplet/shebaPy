@@ -12,9 +12,10 @@ from wrapper import Wrapper
 
 data = obspy.read('example/data/HKT_1995226_043721_SKS.BH?')
 
-Example = Wrapper(data, 'SKS', rundir='example/')
+Example = Wrapper(data, 'SKS', rundir='example/', teleseismic=True)
 # Preprocess method filters and trims data
 Example.preprocess()
-result = Example.measure_splitting('HKT_example', sheba_exec_path='/Users/ja17375/Ext_programs/bin',
- 									window=True, debug=True)
+result = Example.measure_splitting('HKT_example', sheba_exec_path='/Users/eart0593/Ext_programs/bin',
+ 									window=False, debug=True)
+Example.plot_result(result, 'HKT_example')
 result.to_csv('HKT_example.sdb', index=False, sep=' ')
