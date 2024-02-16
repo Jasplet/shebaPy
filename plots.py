@@ -15,7 +15,7 @@ import obspy
 from obspy import UTCDateTime
 import netCDF4 as nc
 
-def diagnostic_plot(result_nc, result_id):
+def diagnostic_plot(st, st_corr, result):
     '''
     Produces a diagnostic plot for each shear-wave splitting measurment
 
@@ -26,17 +26,61 @@ def diagnostic_plot(result_nc, result_id):
     '''
 
 
-    fig = plt.figure(layout="constrained")
+    fig = plt.figure(layout="constrained", figsize= (13,7.5))
+    gs = GridSpec(4, 6, figure=fig)
+    # Input data
+    ax1 = fig.add_subplot(gs[0,0:3])
+    _plot_traces(st, show_final_window=True, axes=ax1)
+    ax1.set_xlim([result.wbeg -1, result.wend + 1])
+    ax1.set_title(f'Input S. Event: {st[0].stats.starttime}. Station: {result.station.strip()}', fontsize=12)
+    # Corrected data
+    ax2 = fig.add_subplot(gs[0,3:], sharey=ax1)
+    _plot_traces(st_corr, show_final_window=True, axes=ax2)
+    ax2.set_xlim([result.wbeg -1, result.wend + 1])
+    ax2.set_title(f'Corrected S. $\phi_f = {result.fast:4.2f}\pm{result.dfast:4.2f}$, $\delta t = {result.tlag:4.3f}\pm{result.dtlag:4.3f}$')
+    # 
+    ax3 = fig.add_subplot(gs[1, 0])
+    _ppm(ax3, st)
+    
+    ax4 = fig.add_subplot(gs[1, 1])
+    _ppm(ax4, st_corr)
+    ax4 = fig.add_subplot(gs[1:4, 3:6])
+    phis = result.variables['fast_vector'][:]
+    dts = result.variables['tlag_vector'][:]
+    PHI, TLAG = np.meshgrid(phis, dts)
 
-    gs = GridSpec(3, 4, figure=fig)
+    C = ax4.contourf(TLAG, PHI, result.variables['lam2_norm_grid'][:], levels=np.linspace(1,21,11),
+                cmap='magma_r')
+    C1 = ax4.contour(TLAG, PHI, result.variables['lam2_norm_grid'][:], levels=[1], linewidths=[3],
+                colors='black')
+    ax4.plot(result.tlag, result.fast, 'x', color='royalblue')
+    ax4.set_ylabel('Fast polarisation [°]')
+    ax4.set_xlabel('Delay time [s]')
+    ax4.set_xlim([dts.min(), dts.max()])
+    ax4.set_ylim([phis.min(), phis.max()])
 
-    # Add uncorrected traces
-    ax1 = fig.add_subplot(gs[0,0:2])
+    # Window clustser fast
+    wind_num = np.arange(0,result.dimensions['window'].size) + 1 #shift to start from 1
+    ax5 = fig.add_subplot(gs[2,0:3])
+    ax5.errorbar(x=wind_num, y=result.variables['mw_fast'][:], yerr=result.variables['mw_dfast'][:])
+    ax5.set_ylim([phis.min(),phis.max()])
+    ax5.set_ylabel(r'$\phi_f$ [°]')
+    # dt for all windows
+    ax6 = fig.add_subplot(gs[3,0:3])
+    ax6.errorbar(x=wind_num, y=result.variables['mw_tlag'][:], yerr=result.variables['mw_dtlag'][:])
+    ax6.set_ylim([dts.min(), dts.max()])
+    ax6.set_ylabel(r'$\delta t$ [s]')
+    ax6.set_xlabel('Window #')
+    # Clusters
+    ax7 = fig.add_subplot(gs[1,2])
+    ax7.scatter(x=result.variables['cluster_xc0'][:], y=result.variables['cluster_yc0'][:])
+    ax7.plot(result.variables['cluster_xc0'][result.best_cluster], result.variables['cluster_yc0'][result.best_cluster],'x', color='red')
+    ax7.set_xlim([dts.min(), dts.max()])
+    ax7.set_ylim([phis.min(), phis.max()])
+    ax7.set_ylabel(r'$\delta t$ [s]')
+    ax7.set_ylabel(r'$\phi_f$ [°]')
 
-    ax2 = fig.add_subplot(gs[1,0:2])
-    ax3 = fig.add_subplot(gs[2, 0])
-    ax4 = fig.add_subplot(gs[2, 1])
-    ax4 = fig.add_subplot(gs[1:3, 2:4])
+    return fig
 
 def _plot_traces(st, **kwargs):
     '''
@@ -77,7 +121,7 @@ def _plot_traces(st, **kwargs):
     
     return 
 
-def _ppm(ax, st, wbeg, wend):
+def _ppm(ax, st):
     st_plot = st.copy()
     
     rel_msecs = int(st[0].stats.sac['nzmsec']*1e-3)
@@ -88,7 +132,7 @@ def _ppm(ax, st, wbeg, wend):
     rel_years = int(st[0].stats.sac['nzyear'])
     event_time = obspy.UTCDateTime(year=rel_years, julday=rel_jdays, hour=rel_hours,
                                             minute=rel_mins, second=rel_secs, microsecond=rel_msecs)
-    st_plot.trim(event_time + wbeg, event_time + wend)
+    st_plot.trim(st[0].stats.starttime + st[0].stats.sac['a'], st[0].stats.starttime + st[0].stats.sac['f'])
     trN = st_plot.select(channel='??N')[0]
     trE = st_plot.select(channel='??E')[0]
     ax.plot(trE.data, trN.data)
@@ -112,14 +156,13 @@ def time_shift(st):
         event-relative times (i.e., time after earthquake source time)
     '''
     sacstats = st[0].stats.sac
-    origin = UTCDateTime(year=sacstats['nzyear'], julday=sacstats['nzjday'],
-                               hour=sacstats['nzhour'], minute=sacstats['nzmin'],
-                               second=sacstats['nzsec'], microsecond=sacstats['nzmsec']
-                              )
-    time_after_origin = st[0].stats.starttime - origin
-    relative_times = st[0].times() + time_after_origin
+    if 'o' in st[0].stats.sac:
+        relative_times = st[0].times() + st[0].stats.sac['b'] + st[0].stats.sac['o']
+    else:
+        relative_times = st[0].times() + st[0].stats.sac['b'] 
     return relative_times
     
 if __name__ == '__main__':
-    st = obspy.read('/Users/ja17375/Programs/shebaPy/example/HKT_example*.BH?')
-    plot_traces(st)
+    st = obspy.read('/Users/eart0593/Projects/SHARP/splitting/data/ML_gte_0/*/GB_MONM_20180420145936.*')
+
+    _plot_traces(st)
