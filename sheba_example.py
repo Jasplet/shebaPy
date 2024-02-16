@@ -7,6 +7,7 @@ Created on Wed Aug 18 16:45:38 2021
 
 Simple example (for one phase) of how to use the SHEBA wrapper
 """
+import pandas as pd
 import obspy
 from wrapper import Wrapper
 
@@ -18,4 +19,4 @@ Example.preprocess()
 result = Example.measure_splitting('HKT_example', sheba_exec_path='/Users/eart0593/Ext_programs/bin',
  									window=False, debug=True)
 Example.plot_result(result, 'HKT_example')
-result.to_csv('HKT_example.sdb', index=False, sep=' ')
+pd.DataFrame(result, index=[0]).to_csv('HKT_example.sdb', index=False, sep=' ')
