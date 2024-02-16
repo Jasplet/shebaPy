@@ -328,7 +328,7 @@ class Wrapper:
                                          ['s'])
             traveltime = tt[0].time
 
-            tt_utc =  self.event_time + traveltime
+        tt_utc =  self.event_time + traveltime
 
         print(f'Depth: {self.sacstats["evdp"]}, Epicentral distance: {self.sacstats["gcarc"]}')
         print(tt_utc)
