@@ -65,12 +65,13 @@ class Wrapper:
         self.delta = st[0].stats.delta # sample rate of seismometer [s]
         self.phase = phase # The shear-wave phase we are measuing splitting for!
         self.teleseismic = teleseismic # flag for teleseimic v local mode
-        if st[0].stats.sac.iztype == 'io':
+        if st[0].stats.sac.iztype == '11':
             print('SAC file has relative timings from origin')
             self.event_time = st[0].stats.starttime + st[0].stats.sac['b'] + st[0].stats.sac['o']
-        elif st[0].stats.sac.iztype == 'ib':
+        else:
             print('SAC file has relative timeing from stream start')
             print('I am going to assume this is the origin time...')
+            self.event_time = st[0].stats.starttime + st[0].stats.sac['b']
         
         for trace in self.st:
             trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
@@ -304,19 +305,13 @@ class Wrapper:
         traveltime :
             predicted arrival time as seconds after event origin time
         """
-        evt_time = obspy.UTCDateTime(year = self.sacstats['nzyear'],
-                                     julday = self.sacstats['nzjday'],
-                                     hour=self.sacstats['nzhour'],
-                                     minute=self.sacstats['nzmin'],
-                                     second=self.sacstats['nzsec'],
-                                     microsecond=self.sacstats['nzmsec'])
         if ('t1' in self.sacstats) & (self.phase == 'SKS'):
             # pick exists and is stored in sac headers
             print('Use existing pick in t1')
-            traveltime = self.sacstats['t1']
+            traveltime = self.sacstats['t1'] + self.sacstats['b']
         elif ('t2' in self.sacstats) & (self.phase == 'S'):
             print('Use existing pick in t2')
-            traveltime = self.sacstats['t2']
+            traveltime = self.sacstats['t2'] + self.sacstats['b']
         else:
             print(f'Use TauP to predict {self.phase} arrival time') 
             model = TauPyModel(model="iasp91")
@@ -327,13 +322,9 @@ class Wrapper:
                 tt = model.get_travel_times((self.sacstats['evdp']),
                                          self.sacstats['gcarc'],
                                          ['s'])
-            traveltime = tt[0].time
+            traveltime = tt[0].time + self.sacstats['b']
 
-        if 'o' in self.sacstats:
-            tt_utc =  evt_time + traveltime + self.st[0].stats.sac['o']
-            print(self.st[0].stats.sac['o'])
-        else:
-            tt_utc = evt_time + traveltime
+            tt_utc =  self.event_time + traveltime
 
         print(f'Depth: {self.sacstats["evdp"]}, Epicentral distance: {self.sacstats["gcarc"]}')
         print(tt_utc)
@@ -370,7 +361,7 @@ class Wrapper:
         Creates a diagnostic plot
         '''
         st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?') 
-        fig = diagnostic_plot(self.st, st_corr, result)
+        fig = diagnostic_plot(self.st, st_corr, result_nc)
         fig.savefig()
         return 
 
