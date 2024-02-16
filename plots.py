@@ -15,7 +15,7 @@ import obspy
 from obspy import UTCDateTime
 import netCDF4 as nc
 
-def diagnostic_plot(st, st_corr, result):
+def diagnostic_plot(st, st_corr, result, event_time):
     '''
     Produces a diagnostic plot for each shear-wave splitting measurment
 
@@ -40,10 +40,10 @@ def diagnostic_plot(st, st_corr, result):
     ax2.set_title(f'Corrected S. $\phi_f = {result.fast:4.2f}\pm{result.dfast:4.2f}$, $\delta t = {result.tlag:4.3f}\pm{result.dtlag:4.3f}$')
     # 
     ax3 = fig.add_subplot(gs[1, 0])
-    _ppm(ax3, st)
+    _ppm(ax3, st, event_time)
     
     ax4 = fig.add_subplot(gs[1, 1])
-    _ppm(ax4, st_corr)
+    _ppm(ax4, st_corr, event_time)
     ax4 = fig.add_subplot(gs[1:4, 3:6])
     phis = result.variables['fast_vector'][:]
     dts = result.variables['tlag_vector'][:]
@@ -62,19 +62,23 @@ def diagnostic_plot(st, st_corr, result):
     # Window clustser fast
     wind_num = np.arange(0,result.dimensions['window'].size) + 1 #shift to start from 1
     ax5 = fig.add_subplot(gs[2,0:3])
-    ax5.errorbar(x=wind_num, y=result.variables['mw_fast'][:], yerr=result.variables['mw_dfast'][:])
+    ax6.errorbar(x=wind_num, y=result.variables['mw_fast'][:], yerr=result.variables['mw_dfast'][:])
+    ax5.errorbar(x=wind_num, y=result.variables['mw_fast'][result.best_window-1],
+                yerr=result.variables['mw_dfast'][result.best_window-1], color='tab_red')
     ax5.set_ylim([phis.min(),phis.max()])
     ax5.set_ylabel(r'$\phi_f$ [°]')
     # dt for all windows
     ax6 = fig.add_subplot(gs[3,0:3])
     ax6.errorbar(x=wind_num, y=result.variables['mw_tlag'][:], yerr=result.variables['mw_dtlag'][:])
+    ax6.errorbar(wind_num[result.best_window-1], y=result.variables['mw_tlag'][result.best_window-1],
+              yerr=result.variables['mw_dtlag'][result.best_window-1], color='tab:red')
     ax6.set_ylim([dts.min(), dts.max()])
     ax6.set_ylabel(r'$\delta t$ [s]')
     ax6.set_xlabel('Window #')
     # Clusters
     ax7 = fig.add_subplot(gs[1,2])
     ax7.scatter(x=result.variables['cluster_xc0'][:], y=result.variables['cluster_yc0'][:])
-    ax7.plot(result.variables['cluster_xc0'][result.best_cluster], result.variables['cluster_yc0'][result.best_cluster],'x', color='red')
+    ax7.plot(result.variables['cluster_xc0'][result.best_cluster-1], result.variables['cluster_yc0'][result.best_cluster-1],'x', color='red')
     ax7.set_xlim([dts.min(), dts.max()])
     ax7.set_ylim([phis.min(), phis.max()])
     ax7.set_ylabel(r'$\delta t$ [s]')
@@ -121,18 +125,10 @@ def _plot_traces(st, **kwargs):
     
     return 
 
-def _ppm(ax, st):
+def _ppm(ax, st, event_time):
     st_plot = st.copy()
-    
-    rel_msecs = int(st[0].stats.sac['nzmsec']*1e-3)
-    rel_secs = int(st[0].stats.sac['nzsec'])
-    rel_mins = int(st[0].stats.sac['nzmin'])
-    rel_hours= int(st[0].stats.sac['nzhour'])
-    rel_jdays = int(st[0].stats.sac['nzjday'])
-    rel_years = int(st[0].stats.sac['nzyear'])
-    event_time = obspy.UTCDateTime(year=rel_years, julday=rel_jdays, hour=rel_hours,
-                                            minute=rel_mins, second=rel_secs, microsecond=rel_msecs)
-    st_plot.trim(st[0].stats.starttime + st[0].stats.sac['a'], st[0].stats.starttime + st[0].stats.sac['f'])
+
+    st_plot.trim(event_time + st[0].stats.sac['a'], event_time + st[0].stats.sac['f'])
     trN = st_plot.select(channel='??N')[0]
     trE = st_plot.select(channel='??E')[0]
     ax.plot(trE.data, trN.data)
