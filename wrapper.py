@@ -367,7 +367,7 @@ class Wrapper:
         result_nc = Dataset(f'{self.path}/{filename}_sheba_result.nc')
         st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?') 
         fig = diagnostic_plot(self.st, st_corr, result_nc, self.event_time)
-        fig.savefig(f'{filename}_shebapy_plot.png', dpi=500)
+        fig.savefig(f'{self.path}/{filename}_shebapy_plot.png', dpi=500)
 
 def collate_result(path=None, fname=None, full_file=None):
         '''
