@@ -71,27 +71,31 @@ class Wrapper:
         else:
             print('SAC file has relative timeing from stream start')
             print('I am going to assume this is the origin time...')
-            self.event_time = st[0].stats.starttime + st[0].stats.sac['b']
+            self.event_time = st[0].stats.starttime - st[0].stats.sac['b']
         
         for trace in self.st:
             trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
             self.fix_cmp_dir(trace)
 #       Formats Station name in headers so that it is 8 characters long,
 #       with emtpy character fill with whitespaces
-
+        if teleseismic:
+            default_wind_param = {'wbeg_pre_S': 5, 'wend_post_S':10, 'pick_tol':1}
+        else:
+            default_wind_param = {'wbeg_pre_S': 0.1, 'wend_post_S':0.2, 'pick_tol':0.05}
+            
         if 'wbeg_pre_S' in kwargs:
             self.wbeg_pre_S = kwargs['wbeg_pre_S']
         else: 
-            self.wbeg_pre_S = 0.1
+            self.wbeg_pre_S = default_wind_param['wbeg_pre_S']
 
         if 'wend_post_S' in kwargs:
             self.wend_post_S = kwargs['wend_post_S']
         else:
-            self.wend_post_S = 0.2
+            self.wend_post_S = default_wind_param['wend_post_S']
         if 'pick_tol' in kwargs:
             self.pick_tol = kwargs['pick_tol']
         else:
-            self.pick_tol = 0.05
+            self.pick_tol = default_wind_param['pick_tol']
 
         check_phase_dist(phase, self.sacstats['gcarc'])
         check_evdp(trace)
@@ -225,7 +229,7 @@ class Wrapper:
             ch = trace.stats.channel
             trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
             trace.write(f'{self.path}/{filename}.{ch}', format='SAC', byteorder=1)
-            #Also 
+            #Also update corrected st
             tr_corr = obspy.read(f'{self.path}/{filename}_corr.{ch}')   
             tr_corr[0].stats.channel = ch
             tr_corr[0].stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
@@ -322,7 +326,7 @@ class Wrapper:
                 tt = model.get_travel_times((self.sacstats['evdp']),
                                          self.sacstats['gcarc'],
                                          ['s'])
-            traveltime = tt[0].time + self.sacstats['b']
+            traveltime = tt[0].time
 
             tt_utc =  self.event_time + traveltime
 
@@ -347,7 +351,7 @@ class Wrapper:
             user2 = trace.stats.sac['user2']
             user3 = trace.stats.sac['user3']
         elif self.teleseismic:
-            user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=15, wend_post_S=15)  
+            user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=self.wbeg_pre_S, wend_post_S=self.wend_post_S, pick_tol=self.pick_tol)  
         elif 't2' in trace.stats.sac:
             user0, user1, user2, user3 = auto_window(trace.stats.sac['t2'], self.wbeg_pre_S, self.wend_post_S, pick_tol=self.pick_tol)
         else:
@@ -360,10 +364,10 @@ class Wrapper:
         '''
         Creates a diagnostic plot
         '''
+        result_nc = Dataset(f'{self.path}/{filename}_sheba_result.nc')
         st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?') 
-        fig = diagnostic_plot(self.st, st_corr, result_nc)
-        fig.savefig()
-        return 
+        fig = diagnostic_plot(self.st, st_corr, result_nc, self.event_time)
+        fig.savefig(f'{filename}_shebapy_plot.png', dpi=500)
 
 def collate_result(path=None, fname=None, full_file=None):
         '''
