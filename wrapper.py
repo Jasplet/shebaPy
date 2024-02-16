@@ -12,6 +12,7 @@ from netCDF4 import Dataset
 import obspy
 from obspy.taup import TauPyModel
 from obspy import UTCDateTime
+from obspy.io.sac import SACTrace
 from windower import WindowPicker
 from plots import diagnostic_plot
 # from .plots import plot_traces, plot_pm
@@ -64,14 +65,13 @@ class Wrapper:
         self.delta = st[0].stats.delta # sample rate of seismometer [s]
         self.phase = phase # The shear-wave phase we are measuing splitting for!
         self.teleseismic = teleseismic # flag for teleseimic v local mode
-        rel_msecs = int(st[0].stats.sac['nzmsec']*1e-3)
-        rel_secs = int(st[0].stats.sac['nzsec'])
-        rel_mins = int(st[0].stats.sac['nzmin'])
-        rel_hours= int(st[0].stats.sac['nzhour'])
-        rel_jdays = int(st[0].stats.sac['nzjday'])
-        rel_years = int(st[0].stats.sac['nzyear'])
-        self.event_time = obspy.UTCDateTime(year=rel_years, julday=rel_jdays, hour=rel_hours,
-                                                minute=rel_mins, second=rel_secs, microsecond=rel_msecs)
+        if st[0].stats.sac.iztype == 'io':
+            print('SAC file has relative timings from origin')
+            self.event_time = st[0].stats.starttime + st[0].stats.sac['b'] + st[0].stats.sac['o']
+        elif st[0].stats.sac.iztype == 'ib':
+            print('SAC file has relative timeing from stream start')
+            print('I am going to assume this is the origin time...')
+        
         for trace in self.st:
             trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
             self.fix_cmp_dir(trace)
@@ -414,20 +414,6 @@ def collate_result(path=None, fname=None, full_file=None):
                 'EIGORIG':raw_result.eigrat_orig, 'EIGCORR': raw_result.eigrat_corr,
                 'SNR':raw_result.snr, 'NDF':raw_result.ndf}
         return result
-
-def event_relative_time(st_stats):
-    '''
-    Use SAC headers
-    
-    '''
-    start = st_stats.starttime 
-    sacstat = st_stats.sac
-    
-    startdate = UTCDateTime(start)
-    eventtime = UTCDateTime(year=sacstat['nzyear'], julday=sacstat['nzjday'], hour=sacstat['nzhour'],
-                            minute=sacstat['nzmin'], second=sacstat['nzsec'], microsecond=sacstat['nzmsec'])
-    rel_start = startdate - eventtime
-    return rel_start, eventtime
 
 def check_evdp(trace):
     '''
