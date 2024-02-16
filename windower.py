@@ -97,8 +97,8 @@ class WindowPicker:
         self.lim_min = min([self.st[0].data.min(), self.st[1].data.min()]) * 1.1
         # self.ax1.set_aspect('equal')
         self.ax2.set_ylim([self.lim_min,self.lim_max])
-        self.ax2.set_xlim(tt-60,tt+120 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
-        self.ax3.set_xlim(tt-60,tt+120) #max(self.t))
+        self.ax2.set_xlim(tt-5,tt+10 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
+        self.ax3.set_xlim(tt-5,tt+10) #max(self.t))
         # Add some labels
         self.phaselabel = self.ax2.text(self.tt + 1,
                                         self.lim_max*0.8,"IASP91\nPred.\nArrival",
