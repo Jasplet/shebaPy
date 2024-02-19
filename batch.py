@@ -113,7 +113,10 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
         tlag_max = kwargs['tlag_max']
     run_teleseism = kwargs['teleseismic']
     results = []
-
+    if 'plot' in kwargs:
+        plot = kwargs['plot']
+    else:
+        plot = False
 
     for i, file in enumerate(filelist):
         res_stem = file.split('/')[-1]
@@ -121,7 +124,8 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
         if os.path.isfile(f'{rundir}/{res_id}_sheba_result.nc'):
             if remeasure:
                 try:
-                    result = measure_event(file, rundir, phases[i], window=window, nwind=nwind, debug=debug, c1=c1, c2=c2, trim=trim, tlag_max=tlag_max, teleseismic=run_teleseism)
+                    result = measure_event(file, rundir, phases[i], window=window, nwind=nwind, debug=debug,
+                                            c1=c1, c2=c2, trim=trim, tlag_max=tlag_max, teleseismic=run_teleseism, plot=plot)
                     if result is not None:
                         #Only append full Dicts!
                         results.append(result)
@@ -131,7 +135,8 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
                 print('Skipping event - already measured')
                 result = collate_result(rundir, res_id)
         else:
-            result = measure_event(file, rundir, phases[i], window=window, nwind=nwind, debug=debug, c1=c1, c2=c2, trim=trim, tlag_max=tlag_max, teleseismic=run_teleseism)
+            result = measure_event(file, rundir, phases[i], window=window, nwind=nwind, debug=debug, c1=c1, c2=c2, trim=trim, tlag_max=tlag_max,
+                                    teleseismic=run_teleseism, plot=plot)
             if result is not None:
                 #Only append full Dicts!
                 results.append(result)
