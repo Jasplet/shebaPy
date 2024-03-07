@@ -65,17 +65,27 @@ class Wrapper:
         self.delta = st[0].stats.delta # sample rate of seismometer [s]
         self.phase = phase # The shear-wave phase we are measuing splitting for!
         self.teleseismic = teleseismic # flag for teleseimic v local mode
-        if st[0].stats.sac.iztype == '11':
-            print('SAC file has relative timings from origin')
-            self.event_time = st[0].stats.starttime + st[0].stats.sac['b'] + st[0].stats.sac['o']
-        else:
-            print('SAC file has relative timeing from stream start')
-            print('I am going to assume this is the origin time...')
-            self.event_time = st[0].stats.starttime - st[0].stats.sac['b']
-        
+        reftimes = []
         for trace in self.st:
             trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
             self.fix_cmp_dir(trace)
+            sactr = SACTrace.from_obspy_trace(trace)
+            reftimes.append(sactr.reftime)
+
+        if reftimes[0] == reftimes[1] == reftimes[2]:
+            if sactr.iztype == 'io':
+                self.event_time = reftimes[0] + sactr.o
+            elif sactr.iztype == 'ib':
+                # Sac trace time is relative from start. 
+                # Assume this start this is EQ origin time 
+                print('Assuming file begin time == origin time')
+                self.event_time = reftimes[0]
+            else:
+                raise ValueError('Unsupported sac reftime, convert to io')           
+        else:
+            raise ValueError('SAC reference times are not equal - fix your data!')
+        
+        del sactr
 #       Formats Station name in headers so that it is 8 characters long,
 #       with emtpy character fill with whitespaces
         if teleseismic:
@@ -160,8 +170,9 @@ class Wrapper:
                 trace.trim(t1,t2)
             elif trim:
                 print('Local trim')
-                t1 = (self.tt_utc - 10)
-                t2 = (self.tt_utc + 10)
+                t1 = (self.tt_utc-5)
+                t2 = (self.tt_utc+5)
+                trace.trim(t1,t2)
             else:
                 print('Not trimming')
 #               Initialise Windows
@@ -199,6 +210,11 @@ class Wrapper:
             
         if 'tlag_max' in kwargs:
             self.gen_infile(output_filename, nwind=nwind, tlag_max=kwargs['tlag_max'])
+            if self.st[0].stats.delta*40 >= kwargs['tlag_max']:
+                intp_delta = self.st[0].stats.delta / 2
+                print(f'Sheba will autoset tlag max to {self.st[0].stats.delta*40}')
+                print(f'Interpolating to double sample frequency {1/intp_delta:4.2f}')
+                self.st.interpolate(1/intp_delta)
         else:
             self.gen_infile(output_filename, nwind=nwind)
 
@@ -286,7 +302,8 @@ class Wrapper:
         Windower = WindowPicker(self.st,
                                 self.st[0].stats.sac['user0'], self.st[0].stats.sac['user1'],
                                 self.st[0].stats.sac['user2'], self.st[0].stats.sac['user3'],
-                                self.tt_rel)
+                                self.tt_rel,
+                                self.event_time)
 
         if Windower.wbeg1 is None:
             raise ValueError('Skipping event as it is poor quality!')
@@ -296,6 +313,8 @@ class Wrapper:
                       'user2' : Windower.wend1, 'user3' : Windower.wend2}
             for trace in self.st:
                 trace.stats.sac.update(windows)
+
+            # self.st.trim(self.event_time+windows['user0']-1, self.event_time+windows['user3']+1)
             return
 
     def model_traveltimes(self):
@@ -312,10 +331,10 @@ class Wrapper:
         if ('t1' in self.sacstats) & (self.phase == 'SKS'):
             # pick exists and is stored in sac headers
             print('Use existing pick in t1')
-            traveltime = self.sacstats['t1'] + self.sacstats['b']
+            traveltime = self.sacstats['t1'] #+ self.sacstats['o']
         elif ('t2' in self.sacstats) & (self.phase == 'S'):
             print('Use existing pick in t2')
-            traveltime = self.sacstats['t2'] + self.sacstats['b']
+            traveltime = self.sacstats['t2'] #+ self.sacstats['o']
         else:
             print(f'Use TauP to predict {self.phase} arrival time') 
             model = TauPyModel(model="iasp91")
@@ -365,6 +384,7 @@ class Wrapper:
         Creates a diagnostic plot
         '''
         result_nc = Dataset(f'{self.path}/{filename}_sheba_result.nc')
+        st = obspy.read(f'{self.path}/{filename}.?H?') 
         st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?') 
         fig = diagnostic_plot(self.st, st_corr, result_nc, self.event_time)
         fig.savefig(f'{self.path}/{filename}_shebapy_plot.png', dpi=500)
