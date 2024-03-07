@@ -86,7 +86,7 @@ def diagnostic_plot(st, st_corr, result, event_time):
 
     return fig
 
-def _plot_traces(st, **kwargs):
+def _plot_traces(st, event_time, **kwargs):
     '''
     function to plot shear-wave traces 
     
@@ -102,7 +102,7 @@ def _plot_traces(st, **kwargs):
     else:
         ax = kwargs['axes']
     
-    times = time_shift(st)
+    times = st.times(reftime=event_time)
     ax.plot(times, st[0].data, label=st[0].stats.channel, color='dodgerblue')
     ax.plot(times, st[1].data, label=st[1].stats.channel, color='darkorange')
     
