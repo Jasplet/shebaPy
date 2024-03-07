@@ -30,12 +30,12 @@ def diagnostic_plot(st, st_corr, result, event_time):
     gs = GridSpec(4, 6, figure=fig)
     # Input data
     ax1 = fig.add_subplot(gs[0,0:3])
-    _plot_traces(st, show_final_window=True, axes=ax1)
+    _plot_traces(st, show_final_window=True, axes=ax1, event_time=event_time)
     ax1.set_xlim([result.wbeg -1, result.wend + 1])
     ax1.set_title(f'Input S. Event: {st[0].stats.starttime}. Station: {result.station.strip()}', fontsize=12)
     # Corrected data
     ax2 = fig.add_subplot(gs[0,3:], sharey=ax1)
-    _plot_traces(st_corr, show_final_window=True, axes=ax2)
+    _plot_traces(st_corr, show_final_window=True, axes=ax2, event_time=event_time)
     ax2.set_xlim([result.wbeg -1, result.wend + 1])
     ax2.set_title(f'Corrected S. $\phi_f = {result.fast:4.2f}\pm{result.dfast:4.2f}$, $\delta t = {result.tlag:4.3f}\pm{result.dtlag:4.3f}$')
     # 
@@ -102,7 +102,7 @@ def _plot_traces(st, event_time, **kwargs):
     else:
         ax = kwargs['axes']
     
-    times = st.times(reftime=event_time)
+    times = st[0].times(reftime=event_time)
     ax.plot(times, st[0].data, label=st[0].stats.channel, color='dodgerblue')
     ax.plot(times, st[1].data, label=st[1].stats.channel, color='darkorange')
     
