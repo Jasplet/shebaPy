@@ -103,7 +103,6 @@ def _plot_traces(st, **kwargs):
         ax = kwargs['axes']
     
     times = time_shift(st)
-    
     ax.plot(times, st[0].data, label=st[0].stats.channel, color='dodgerblue')
     ax.plot(times, st[1].data, label=st[1].stats.channel, color='darkorange')
     
