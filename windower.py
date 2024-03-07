@@ -88,16 +88,16 @@ class WindowPicker:
         self.lim_min = min([self.st[0].data.min(), self.st[1].data.min()]) * 1.1
         # self.ax1.set_aspect('equal')
         self.ax2.set_ylim([self.lim_min,self.lim_max])
-        self.ax2.set_xlim(tt-1,tt+5 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
-        self.ax3.set_xlim(tt-1,tt+5 ) #max(self.t))
+        self.ax2.set_xlim(tt-1,tt+2 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
+        self.ax3.set_xlim(tt-1,tt+2 ) #max(self.t))
         # Add some labels
         self.phaselabel = self.ax2.text(self.tt + 1,
                                         self.lim_max*0.8,"IASP91\nPred.\nArrival",
                                         multialignment='left')
-        self.wbeg1label = self.ax2.text(self.wbeg1 - 3, self.lim_min*0.85, 'S', color='r', fontsize=14)
-        self.wbeg2label = self.ax2.text(self.wbeg2 - 3, self.lim_min*0.85, 'F', color='r', fontsize=14)
-        self.wend1label = self.ax2.text(self.wend1 - 3, self.lim_min*0.85, 'S', color='g', fontsize=14)
-        self.wend2label = self.ax2.text(self.wend2 - 3, self.lim_min*0.85, 'F', color='g', fontsize=14)
+        # self.wbeg1label = self.ax2.text(self.wbeg1 - 3, self.lim_min*0.85, 'S', color='r', fontsize=14)
+        # self.wbeg2label = self.ax2.text(self.wbeg2 - 3, self.lim_min*0.85, 'F', color='r', fontsize=14)
+        # self.wend1label = self.ax2.text(self.wend1 - 3, self.lim_min*0.85, 'S', color='g', fontsize=14)
+        # self.wend2label = self.ax2.text(self.wend2 - 3, self.lim_min*0.85, 'F', color='g', fontsize=14)
         print("'a' & 'd' set the window beginnning range")
         print("'z' & 'v' set the window end range")
         self.connect()
@@ -158,28 +158,28 @@ class WindowPicker:
             self.x1 = event.xdata
             print(self.ydat)
             self.wbeg1line.set_data(self.x1,self.ydat)
-            self.wbeg1label.set_position((self.x1 - 3, self.lim_min*0.85))
+            # self.wbeg1label.set_position((self.x1 - 3, self.lim_min*0.85))
             plt.draw()
             print(self.x1)
         elif event.key == "d":
             print('WBEG End')
             self.x2 = event.xdata
             self.wbeg2line.set_data(self.x2,self.ydat)
-            self.wbeg2label.set_position((self.x2 - 3, self.lim_min*0.85))
+            # self.wbeg2label.set_position((self.x2 - 3, self.lim_min*0.85))
             plt.draw()
             print(self.x2)
         elif event.key == "z":
             print('WEND Start')
             self.x3 = event.xdata
             self.wend1line.set_data(self.x3,self.ydat)
-            self.wend1label.set_position((self.x3 - 3, self.lim_min*0.85))
+            # self.wend1label.set_position((self.x3 - 3, self.lim_min*0.85))
             plt.draw()
             print(self.x3)
         elif event.key == "v":
             print('WEND End')
             self.x4 = event.xdata
             self.wend2line.set_data(self.x4,self.ydat)
-            self.wend2label.set_position((self.x4 - 3, self.lim_min*0.85))
+            # self.wend2label.set_position((self.x4 - 3, self.lim_min*0.85))
             plt.draw()
             print(self.x4)
         elif event.key == "w":
