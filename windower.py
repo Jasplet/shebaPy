@@ -11,7 +11,7 @@ class WindowPicker:
     Picks a Window start/end range, for use with cluster analysis code
     """
 
-    def __init__(self, st ,wbeg1 ,wbeg2 ,wend1 ,wend2 ,tt,**kwargs):
+    def __init__(self, st ,wbeg1 ,wbeg2 ,wend1 ,wend2 ,tt, event_time, **kwargs):
         '''
         Cosntructs ineractive window picker for a waveform
         Parameters
@@ -34,7 +34,7 @@ class WindowPicker:
         None.
         '''
         #t0 = 60 seconds before traveltime (aka the start of the trimming seismogram)
-        self.st = st # Obspy stream containing BHN and BHE
+        self.st = st.copy() # Obspy stream containing BHN and BHE
         chs = [tr.stats.channel for tr in st]
         # if ('BHN' in chs) and ('BHE' in chs) and ('BHZ' in chs):
         #     pass
@@ -46,38 +46,29 @@ class WindowPicker:
     
         self.tt = tt
         self.delta = st[0].stats.delta
-        if 'o' in st[0].stats.sac:
-            self.t = st[0].times() + st[0].stats.sac['b'] + st[0].stats.sac['o']
-        else:
-            self.t = st[0].times() + st[0].stats.sac['b'] 
+        self.times = st[0].times(reftime=event_time)
         # make initial window ranges attributes
         (self.wbeg1,self.wbeg2,self.wend1,self.wend2) = (wbeg1,wbeg2,wend1,wend2)
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
         # Base plot (before interactive stuff)
-        self.fig = plt.figure(figsize = (10,8))
-        yr = st[0].stats.sac['nzyear']
-        jd = st[0].stats.sac['nzjday']
-        hr = st[0].stats.sac['nzhour']
-        mn = st[0].stats.sac['nzmin']
-        sc = st[0].stats.sac['nzsec']
-        ms = st[0].stats.sac['nzmsec']
-        plt.suptitle(f'Station {st[0].stats.station}, Event Time {yr:4d}-{jd:03d} {hr:02d}:{mn:02d}:{sc:02d}.{ms:3d}')
+        self.fig = plt.figure(figsize = (10,8), sharex=True)
+        plt.suptitle(f'Station {st[0].stats.station}, Event Time {event_time}')
         gs = gridspec.GridSpec(2,2)
         #self.ax1 = plt.subplot(gs[0,:]) # Top Row, for fft plot
         self.ax2 = plt.subplot(gs[0,:]) # Middle Row, for window picking
         self.ax3 = plt.subplot(gs[1,:]) # Bottom row, for envelopes
         #self.plot_fft()
         # Add seismograms
-        self.ax2.plot(self.t, self.st[0].data,label=st[0].stats.channel, color='darkorange')
-        self.ax2.plot(self.t, self.st[1].data,label=st[1].stats.channel, color='dodgerblue')
+        self.ax2.plot(self.times, self.st[0].data,label=st[0].stats.channel, color='darkorange')
+        self.ax2.plot(self.times, self.st[1].data,label=st[1].stats.channel, color='dodgerblue')
         self.ax3.set_xlabel('Time relative to origin (s)')
         # Add instantaneous amplitude envelopes to help pick out signal (should be envelope max at phase arrival)
         ht1 = hilbert(self.st[0].data)
         env1 = np.abs(ht1)
         ht2 = hilbert(self.st[1].data)
         env2 = np.abs(ht2)
-        self.ax3.plot(self.t, env1, color='darkorange',linestyle='--', label=None)
-        self.ax3.plot(self.t, env2, color='dodgerblue',linestyle='--', label=None)
+        self.ax3.plot(self.times, env1, color='darkorange',linestyle='--', label=None)
+        self.ax3.plot(self.times, env2, color='dodgerblue',linestyle='--', label=None)
         self.ax3.set_ylabel('Instantaneous amplitude')
         # Add legend
         self.ax2.legend()
@@ -97,8 +88,8 @@ class WindowPicker:
         self.lim_min = min([self.st[0].data.min(), self.st[1].data.min()]) * 1.1
         # self.ax1.set_aspect('equal')
         self.ax2.set_ylim([self.lim_min,self.lim_max])
-        self.ax2.set_xlim(tt-5,tt+10 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
-        self.ax3.set_xlim(tt-5,tt+10) #max(self.t))
+        self.ax2.set_xlim(tt-0.8*tt,tt+1.5*tt )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
+        self.ax3.set_xlim(tt-0.8*tt,tt+1.5*tt #max(self.t))
         # Add some labels
         self.phaselabel = self.ax2.text(self.tt + 1,
                                         self.lim_max*0.8,"IASP91\nPred.\nArrival",
@@ -108,7 +99,7 @@ class WindowPicker:
         self.wend1label = self.ax2.text(self.wend1 - 3, self.lim_min*0.85, 'S', color='g', fontsize=14)
         self.wend2label = self.ax2.text(self.wend2 - 3, self.lim_min*0.85, 'F', color='g', fontsize=14)
         print("'a' & 'd' set the window beginnning range")
-        print("'z' & 'c' set the window end range")
+        print("'z' & 'v' set the window end range")
         self.connect()
         plt.tight_layout()
         plt.show()
@@ -157,7 +148,7 @@ class WindowPicker:
     def keypress(self,event):
         ''' Define a set of keypress responses
         'a' & 'd' set the window beginnning range
-        'z' & 'c' set the window end range
+        'z' & 'v' set the window end range
         'q' exit the plot and returns the current WBEG, WEND
         The vertical line markers and annotations are redrawn after each Key Press
         
@@ -184,7 +175,7 @@ class WindowPicker:
             self.wend1label.set_position((self.x3 - 3, self.lim_min*0.85))
             plt.draw()
             print(self.x3)
-        elif event.key == "c":
+        elif event.key == "v":
             print('WEND End')
             self.x4 = event.xdata
             self.wend2line.set_data(self.x4,self.ydat)
