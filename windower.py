@@ -51,12 +51,12 @@ class WindowPicker:
         (self.wbeg1,self.wbeg2,self.wend1,self.wend2) = (wbeg1,wbeg2,wend1,wend2)
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
         # Base plot (before interactive stuff)
-        self.fig = plt.figure(figsize = (10,8), sharex=True)
+        self.fig = plt.figure(figsize = (10,8))
         plt.suptitle(f'Station {st[0].stats.station}, Event Time {event_time}')
         gs = gridspec.GridSpec(2,2)
         #self.ax1 = plt.subplot(gs[0,:]) # Top Row, for fft plot
         self.ax2 = plt.subplot(gs[0,:]) # Middle Row, for window picking
-        self.ax3 = plt.subplot(gs[1,:]) # Bottom row, for envelopes
+        self.ax3 = plt.subplot(gs[1,:], sharex=self.ax2) # Bottom row, for envelopes
         #self.plot_fft()
         # Add seismograms
         self.ax2.plot(self.times, self.st[0].data,label=st[0].stats.channel, color='darkorange')
@@ -88,8 +88,8 @@ class WindowPicker:
         self.lim_min = min([self.st[0].data.min(), self.st[1].data.min()]) * 1.1
         # self.ax1.set_aspect('equal')
         self.ax2.set_ylim([self.lim_min,self.lim_max])
-        self.ax2.set_xlim(tt-0.8*tt,tt+1.5*tt )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
-        self.ax3.set_xlim(tt-0.8*tt,tt+1.5*tt #max(self.t))
+        self.ax2.set_xlim(tt-1,tt+5 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
+        self.ax3.set_xlim(tt-1,tt+5 ) #max(self.t))
         # Add some labels
         self.phaselabel = self.ax2.text(self.tt + 1,
                                         self.lim_max*0.8,"IASP91\nPred.\nArrival",
