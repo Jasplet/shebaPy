@@ -135,27 +135,6 @@ def _ppm(ax, st, event_time):
     ax.set_ylabel('North')
     return 
 
-
-def time_shift(st):
-    '''
-    Calculates time shift to make st.times() in seconds after event 
-    
-    Parameters:
-    ----------
-    st :
-        obspy Stream conatining waveform data
-        
-    Returns
-    ----------
-    relative_times : array-like
-        event-relative times (i.e., time after earthquake source time)
-    '''
-    sacstats = st[0].stats.sac
-    if 'o' in st[0].stats.sac:
-        relative_times = st[0].times() + st[0].stats.sac['b'] + st[0].stats.sac['o']
-    else:
-        relative_times = st[0].times() + st[0].stats.sac['b'] 
-    return relative_times
     
 if __name__ == '__main__':
     st = obspy.read('/Users/eart0593/Projects/SHARP/splitting/data/ML_gte_0/*/GB_MONM_20180420145936.*')
