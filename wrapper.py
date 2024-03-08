@@ -9,6 +9,7 @@ Created on Tue Aug 17 12:13:24 2021
 import os
 import subprocess as sub
 from netCDF4 import Dataset
+import numpy as np
 import obspy
 from obspy.taup import TauPyModel
 from obspy import UTCDateTime
@@ -200,23 +201,22 @@ class Wrapper:
             result : dict
                 Shear-wave splitting measurement results and metadata
         """
-        if window:
-            try:
-                #print(self.st)
-                self.window_event()
-            except ValueError:
-                print('Event Skipped')
-                return
-            
         if 'tlag_max' in kwargs:
-            self.gen_infile(output_filename, nwind=nwind, tlag_max=kwargs['tlag_max'])
-            if self.st[0].stats.delta*40 >= kwargs['tlag_max']:
-                intp_delta = self.st[0].stats.delta / 2
-                print(f'Sheba will autoset tlag max to {self.st[0].stats.delta*40}')
-                print(f'Interpolating to double sample frequency {1/intp_delta:4.2f}')
-                self.st.interpolate(1/intp_delta)
+            tlag_max = kwargs['tlag_max']
         else:
-            self.gen_infile(output_filename, nwind=nwind)
+            tlag_max = 4.0 #default
+        if window:
+            self.window_event(tlag_max=tlag_max)
+        if self.skip:
+            return
+            
+        self.gen_infile(output_filename, nwind=nwind, tlag_max=kwargs['tlag_max'])
+        if self.st[0].stats.delta*40 >= tlag_max:
+            intp_delta = self.st[0].stats.delta / 2
+            print(f'Sheba will autoset tlag max to {self.st[0].stats.delta*40}')
+            print(f'Interpolating to double sample frequency to {1/intp_delta:4.2f} from {1/self.st[0].stats.delta}:4.2f')
+            self.st.interpolate(1/intp_delta)
+
 
         self.write_out(output_filename)
         #print(f'Passing {output_filename} into Sheba.')
@@ -303,17 +303,20 @@ class Wrapper:
                                 self.st[0].stats.sac['user0'], self.st[0].stats.sac['user1'],
                                 self.st[0].stats.sac['user2'], self.st[0].stats.sac['user3'],
                                 self.tt_rel,
-                                self.event_time)
+                                self.event_time,
+                                tlag_max=kwargs['tlag_max'])
 
         if Windower.wbeg1 is None:
-            raise ValueError('Skipping event as it is poor quality!')
+            print('Skipping event as it is poor quality!')
+            self.skip = True
+            return 
         else:
             print("Windower Closed, adjusting window ranges")
             windows = {'user0' : Windower.wbeg1, 'user1' : Windower.wbeg2,
                       'user2' : Windower.wend1, 'user3' : Windower.wend2}
             for trace in self.st:
                 trace.stats.sac.update(windows)
-
+            self.skip=False
             # self.st.trim(self.event_time+windows['user0']-1, self.event_time+windows['user3']+1)
             return
 
@@ -334,7 +337,12 @@ class Wrapper:
             traveltime = self.sacstats['t1'] #+ self.sacstats['o']
         elif ('t2' in self.sacstats) & (self.phase == 'S'):
             print('Use existing pick in t2')
-            traveltime = self.sacstats['t2'] #+ self.sacstats['o']
+            if np.isnan(self.sacstats['t2']):
+                print('S pick in header is busted, making rough guess')
+                traveltime = self.sacstats['dist'] / 3.0
+            else: 
+                traveltime = self.sacstats['t2'] #+ self.sacstats['o']
+
         else:
             print(f'Use TauP to predict {self.phase} arrival time') 
             model = TauPyModel(model="iasp91")
@@ -383,11 +391,14 @@ class Wrapper:
         '''
         Creates a diagnostic plot
         '''
-        result_nc = Dataset(f'{self.path}/{filename}_sheba_result.nc')
-        st = obspy.read(f'{self.path}/{filename}.?H?') 
-        st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?') 
-        fig = diagnostic_plot(self.st, st_corr, result_nc, self.event_time)
-        fig.savefig(f'{self.path}/{filename}_shebapy_plot.png', dpi=500)
+        if self.skip:
+            return
+        else:
+            result_nc = Dataset(f'{self.path}/{filename}_sheba_result.nc')
+            st = obspy.read(f'{self.path}/{filename}.?H?') 
+            st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?') 
+            fig = diagnostic_plot(self.st, st_corr, result_nc, self.event_time)
+            fig.savefig(f'{self.path}/{filename}_shebapy_plot.png', dpi=500)
 
 def collate_result(path=None, fname=None, full_file=None):
         '''
