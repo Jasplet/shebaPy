@@ -47,6 +47,11 @@ class WindowPicker:
         self.tt = tt
         self.delta = st[0].stats.delta
         self.times = st[0].times(reftime=event_time)
+
+        if 'tlag_max' in kwargs:
+            self.tlag_max = kwargs['tlag_max']
+        else:
+            self.tlag_max  = 4.0
         # make initial window ranges attributes
         (self.wbeg1,self.wbeg2,self.wend1,self.wend2) = (wbeg1,wbeg2,wend1,wend2)
         (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
@@ -165,6 +170,8 @@ class WindowPicker:
             print('WBEG End')
             self.x2 = event.xdata
             self.wbeg2line.set_data(self.x2,self.ydat)
+            if abs(self.x2 - self.x3) < self.tlag_max:
+                print(f'WARNING: min window small than max tlag {self.tlag_max}. Adjust window ranges')
             # self.wbeg2label.set_position((self.x2 - 3, self.lim_min*0.85))
             plt.draw()
             print(self.x2)
@@ -173,6 +180,8 @@ class WindowPicker:
             self.x3 = event.xdata
             self.wend1line.set_data(self.x3,self.ydat)
             # self.wend1label.set_position((self.x3 - 3, self.lim_min*0.85))
+            if abs(self.x2 - self.x3) < self.tlag_max:
+                print(f'WARNING: min window small than max tlag {self.tlag_max}. Adjust window ranges')
             plt.draw()
             print(self.x3)
         elif event.key == "v":
