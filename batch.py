@@ -134,6 +134,7 @@ def serial_process(filelist, rundir, phases, window=False, nwind=10, debug=False
             else: 
                 print('Skipping event - already measured')
                 result = collate_result(rundir, res_id)
+                results.append(result)
         else:
             result = measure_event(file, rundir, phases[i], window=window, nwind=nwind, debug=debug, c1=c1, c2=c2, trim=trim, tlag_max=tlag_max,
                                     teleseismic=run_teleseism, plot=plot)
