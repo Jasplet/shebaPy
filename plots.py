@@ -25,7 +25,7 @@ def diagnostic_plot(st, st_corr, result, event_time):
         - normalised egigenvalue surface
     '''
 
-
+    plt.close()
     fig = plt.figure(layout="constrained", figsize= (13,7.5))
     gs = GridSpec(4, 6, figure=fig)
     # Input data
