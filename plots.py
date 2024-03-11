@@ -23,6 +23,15 @@ def diagnostic_plot(st, st_corr, result, event_time):
         - corrected/uncorrected traces, with windows and S pick
         - corrected/uncorrected particle motions
         - normalised egigenvalue surface
+
+    Parameters:
+        st : Stream (Obspy)
+            input data to SHEBA
+        st_corr : Stream (Obspy)
+            output data corrected by SHEBA for splitting
+        result : Dataset (netCDF4)
+            dataset netCDF4 files pre read in
+        event_time : 
     '''
 
     plt.close()
@@ -32,7 +41,7 @@ def diagnostic_plot(st, st_corr, result, event_time):
     ax1 = fig.add_subplot(gs[0,0:3])
     _plot_traces(st, show_final_window=True, axes=ax1, event_time=event_time)
     ax1.set_xlim([result.wbeg -1, result.wend + 1])
-    ax1.set_title(f'Input S. Event: {st[0].stats.starttime}. Station: {result.station.strip()}', fontsize=12)
+    ax1.set_title(f'Input S. Event: {event_time}. Station: {result.station.strip()}', fontsize=12)
     # Corrected data
     ax2 = fig.add_subplot(gs[0,3:], sharey=ax1)
     _plot_traces(st_corr, show_final_window=True, axes=ax2, event_time=event_time)
@@ -42,7 +51,7 @@ def diagnostic_plot(st, st_corr, result, event_time):
     ax3 = fig.add_subplot(gs[1, 0])
     _ppm(ax3, st, event_time)
     
-    ax4 = fig.add_subplot(gs[1, 1])
+    ax4 = fig.add_subplot(gs[1, 1], sharex=ax3, sharey=ax3)
     _ppm(ax4, st_corr, event_time)
     ax4 = fig.add_subplot(gs[1:4, 3:6])
     phis = result.variables['fast_vector'][:]
