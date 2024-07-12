@@ -75,7 +75,7 @@ class Wrapper:
 
         if reftimes[0] == reftimes[1] == reftimes[2]:
             if sactr.iztype == 'io':
-                self.event_time = reftimes[0] + sactr.o
+                self.event_time = reftimes[0]
             elif sactr.iztype == 'ib':
                 # Sac trace time is relative from start. 
                 # Assume this start this is EQ origin time 
@@ -128,13 +128,13 @@ class Wrapper:
         Fixes the sac headers cmpinc, cmpaz for BHE,BHN, BHZ channels. If data is 
         downlaoded directly from the IRIS DMC then these SAC headers are missing
         """
-        if (trace.stats.channel == 'BHE') or (trace.stats.channel == 'HHE'):
+        if (trace.stats.channel == 'BHE') or (trace.stats.channel == 'HHE') or (trace.stats.channel == 'HNE'):
             trace.stats.sac.cmpinc = 90
             trace.stats.sac.cmpaz = 90
-        elif (trace.stats.channel == 'BHN') or (trace.stats.channel == 'HHN'):
+        elif (trace.stats.channel == 'BHN') or (trace.stats.channel == 'HHN') or (trace.stats.channel == 'HNN'):
             trace.stats.sac.cmpinc = 90
             trace.stats.sac.cmpaz = 0
-        elif (trace.stats.channel == 'BHZ') or (trace.stats.channel == 'HHZ'): 
+        elif (trace.stats.channel == 'BHZ') or (trace.stats.channel == 'HHZ')or (trace.stats.channel == 'HNZ'): 
             trace.stats.sac.cmpinc = 0
             trace.stats.sac.cmpaz = 0
 
@@ -214,7 +214,7 @@ class Wrapper:
         if self.st[0].stats.delta*40 >= tlag_max:
             intp_delta = self.st[0].stats.delta / 2
             print(f'Sheba will autoset tlag max to {self.st[0].stats.delta*40}')
-            print(f'Interpolating to double sample frequency to {1/intp_delta:4.2f} from {1/self.st[0].stats.delta}:4.2f')
+            print(f'Interpolating to double sample frequency to {1/intp_delta:4.2f} from {1/self.st[0].stats.delta:4.2f}')
             self.st.interpolate(1/intp_delta)
 
 
@@ -243,12 +243,12 @@ class Wrapper:
         '''
         for trace in self.st:
             ch = trace.stats.channel
-            trace.stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
+            trace.stats.sac.update({'a':result['wbeg'], 'f':result['wend']})
             trace.write(f'{self.path}/{filename}.{ch}', format='SAC', byteorder=1)
             #Also update corrected st
             tr_corr = obspy.read(f'{self.path}/{filename}_corr.{ch}')   
             tr_corr[0].stats.channel = ch
-            tr_corr[0].stats.sac.update({'a':result['WBEG'], 'f':result['WEND']})
+            tr_corr[0].stats.sac.update({'a':result['wbeg'], 'f':result['wend']})
             tr_corr.write(f'{self.path}/{filename}_corr.{ch}', format='SAC', byteorder=1)
                 
     def gen_infile(self,filename, nwind=10, tlag_max=4.0):
@@ -349,11 +349,14 @@ class Wrapper:
             tt = model.get_travel_times((self.sacstats['evdp']),
                                          self.sacstats['gcarc'],
                                          [self.phase])
+            
             if len(tt) == 0:
-                tt = model.get_travel_times((self.sacstats['evdp']),
-                                         self.sacstats['gcarc'],
-                                         ['s'])
-            traveltime = tt[0].time
+                print('Taup failed (likelyt becuase distnace is too small')
+                print('Making a back-of-the-envelope guess using vs = 1.5 km/s')
+                traveltime = self.sacstats['dist'] / 1.5
+                print(f'{traveltime:4.2f}')
+            else:
+                traveltime = tt[0].time
 
         tt_utc =  self.event_time + traveltime
 
@@ -426,19 +429,19 @@ def collate_result(path=None, fname=None, full_file=None):
         # print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
         # print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
 
-        result = {'STAT':raw_result.station.strip(),
-                'DATE':raw_result.zdate,'TIME':raw_result.ztime.split('.')[0],
-                'STLA':raw_result.stla, 'STLO':raw_result.stlo,
-                'EVLA':raw_result.evla, 'EVLO':raw_result.evlo, 'EVDP':raw_result.evdp,
-                'GCARC':raw_result.gcarc, 'AZI':raw_result.az, 
-                'BAZ':raw_result.baz, 'SPOL':raw_result.spol,
-                'WBEG':raw_result.wbeg, 'WEND':raw_result.wend, 
-                'FAST':raw_result.fast, 'DFAST':raw_result.dfast,
-                'TLAG':raw_result.tlag, 'DTLAG':raw_result.dtlag,
+        result = {'station':raw_result.station.strip(),
+                'event_time': obspy.UTCDateTime(f'{raw_result.zdate}T{raw_result.ztime}'),
+                'stla':raw_result.stla, 'stlo':raw_result.stlo,
+                'evla':raw_result.evla, 'evlo':raw_result.evlo, 'evdp':raw_result.evdp,
+                'gcdist':raw_result.gcarc, 'azi':raw_result.az, 
+                'bazi':raw_result.baz, 'spol':raw_result.spol,
+                'wbeg':raw_result.wbeg, 'wend':raw_result.wend, 
+                'phi_from_N':raw_result.fast, 'dphi':raw_result.dfast,
+                'lag_time':raw_result.tlag, 'dtlag':raw_result.dtlag,
                 'SI(Pa)':raw_result.intensity_estimated,
-                'SI(Pr)':raw_result.intensity, 'Q':raw_result.qfactor,
-                'EIGORIG':raw_result.eigrat_orig, 'EIGCORR': raw_result.eigrat_corr,
-                'SNR':raw_result.snr, 'NDF':raw_result.ndf}
+                'SI(Pr)':raw_result.intensity, 'Qw':raw_result.qfactor,
+                'eigorig':raw_result.eigrat_orig, 'eigcorr': raw_result.eigrat_corr,
+                'snr':raw_result.snr, 'ndf':raw_result.ndf}
         return result
 
 def check_evdp(trace):
