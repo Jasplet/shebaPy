@@ -46,7 +46,6 @@ class WindowPicker:
     
         self.tt = tt
         self.delta = st[0].stats.delta
-        self.times = st[0].times(reftime=event_time)
 
         if 'tlag_max' in kwargs:
             self.tlag_max = kwargs['tlag_max']
@@ -64,16 +63,16 @@ class WindowPicker:
         self.ax3 = plt.subplot(gs[1,:], sharex=self.ax2) # Bottom row, for envelopes
         #self.plot_fft()
         # Add seismograms
-        self.ax2.plot(self.times, self.st[0].data,label=st[0].stats.channel, color='darkorange')
-        self.ax2.plot(self.times, self.st[1].data,label=st[1].stats.channel, color='dodgerblue')
+        self.ax2.plot(self.st[0].times(reftime=event_time), self.st[0].data,label=st[0].stats.channel, color='darkorange')
+        self.ax2.plot(self.st[1].times(reftime=event_time), self.st[1].data,label=st[1].stats.channel, color='dodgerblue')
         self.ax3.set_xlabel('Time relative to origin (s)')
         # Add instantaneous amplitude envelopes to help pick out signal (should be envelope max at phase arrival)
         ht1 = hilbert(self.st[0].data)
         env1 = np.abs(ht1)
         ht2 = hilbert(self.st[1].data)
         env2 = np.abs(ht2)
-        self.ax3.plot(self.times, env1, color='darkorange',linestyle='--', label=None)
-        self.ax3.plot(self.times, env2, color='dodgerblue',linestyle='--', label=None)
+        self.ax3.plot(self.st[0].times(reftime=event_time), env1, color='darkorange',linestyle='--', label=None)
+        self.ax3.plot(self.st[1].times(reftime=event_time), env2, color='dodgerblue',linestyle='--', label=None)
         self.ax3.set_ylabel('Instantaneous amplitude')
         # Add legend
         self.ax2.legend()
@@ -92,9 +91,14 @@ class WindowPicker:
         self.lim_max = max([self.st[0].data.max(), self.st[1].data.max()]) * 1.1
         self.lim_min = min([self.st[0].data.min(), self.st[1].data.min()]) * 1.1
         # self.ax1.set_aspect('equal')
-        self.ax2.set_ylim([self.lim_min,self.lim_max])
-        self.ax2.set_xlim(tt-1,tt+2 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
-        self.ax3.set_xlim(tt-1,tt+2 ) #max(self.t))
+        try:
+            self.ax2.set_ylim([self.lim_min,self.lim_max])
+        except ValueError:
+            print('error setting ylim, plotting all')
+        self.ax2.set_xlim(0, 20 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
+        self.ax3.set_xlim(0,20) #max(self.t))
+        # self.ax2.set_xlim(tt-0.5,tt+1 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
+        # self.ax3.set_xlim(tt-0.5,tt+1 ) #max(self.t))
         # Add some labels
         self.phaselabel = self.ax2.text(self.tt + 1,
                                         self.lim_max*0.8,"IASP91\nPred.\nArrival",
