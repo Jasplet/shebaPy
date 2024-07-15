@@ -16,6 +16,7 @@ from obspy import UTCDateTime
 from obspy.io.sac import SACTrace
 from windower import WindowPicker
 from plots import diagnostic_plot
+import matplotlib.pyplot as plt
 # from .plots import plot_traces, plot_pm
 
 class Wrapper:
@@ -66,6 +67,7 @@ class Wrapper:
         self.delta = st[0].stats.delta # sample rate of seismometer [s]
         self.phase = phase # The shear-wave phase we are measuing splitting for!
         self.teleseismic = teleseismic # flag for teleseimic v local mode
+        self.fixed_window = False
         reftimes = []
         for trace in self.st:
             trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
@@ -170,7 +172,6 @@ class Wrapper:
                 t2 = (self.tt_utc + 120) #I.e Two minutes after the arrival
                 trace.trim(t1,t2)
             elif trim:
-                print('Local trim')
                 t1 = (self.tt_utc-5)
                 t2 = (self.tt_utc+5)
                 trace.trim(t1,t2)
@@ -375,20 +376,27 @@ class Wrapper:
         trace : 
             obspy Trace object to test
         '''
-        if all (k in trace.stats.sac for k in ('user0','user1','user2','user3')) & self.teleseismic:
-            user0 = trace.stats.sac['user0']
-            user1 = trace.stats.sac['user1']
-            user2 = trace.stats.sac['user2']
-            user3 = trace.stats.sac['user3']
-        elif self.teleseismic:
-            user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=self.wbeg_pre_S, wend_post_S=self.wend_post_S, pick_tol=self.pick_tol)  
-        elif 't2' in trace.stats.sac:
-            user0, user1, user2, user3 = auto_window(trace.stats.sac['t2'], self.wbeg_pre_S, self.wend_post_S, pick_tol=self.pick_tol)
+        if self.fixed_window:
+            trace.stats.sac.update({'a':self.wbeg, 'f':self.wend, 'user0':self.wbeg,
+                                    'user1':self.wbeg, 'user2':self.wend, 
+                                    'user3':self.wend})
         else:
-            user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=self.wbeg_pre_S, wend_post_S=self.wend_post_S, pick_tol=self.pick_tol)  
+            if all (k in trace.stats.sac for k in ('user0','user1','user2','user3')) & self.teleseismic:
+                user0 = trace.stats.sac['user0']
+                user1 = trace.stats.sac['user1']
+                user2 = trace.stats.sac['user2']
+                user3 = trace.stats.sac['user3']
+            elif self.teleseismic:
+                user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=self.wbeg_pre_S, wend_post_S=self.wend_post_S, pick_tol=self.pick_tol)  
+            elif 't2' in trace.stats.sac:
+                user0, user1, user2, user3 = auto_window(trace.stats.sac['t2'], self.wbeg_pre_S, self.wend_post_S, pick_tol=self.pick_tol)
+            else:
+                user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=self.wbeg_pre_S, wend_post_S=self.wend_post_S, pick_tol=self.pick_tol)  
 
-        keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
-        trace.stats.sac.update(keychain)
+            keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
+            trace.stats.sac.update(keychain)
+
+        return
 
     def plot_result(self, result_nc, filename):
         '''
@@ -402,6 +410,7 @@ class Wrapper:
             st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?') 
             fig = diagnostic_plot(self.st, st_corr, result_nc, self.event_time)
             fig.savefig(f'{self.path}/{filename}_shebapy_plot.png', dpi=500)
+            plt.close(fig)
 
 def collate_result(path=None, fname=None, full_file=None):
         '''
