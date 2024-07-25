@@ -161,6 +161,7 @@ class Wrapper:
 #       De-mean and detrend each component
             trace.detrend(type='demean') #demeans the component
             trace.detrend(type='simple') #De-trends component
+            trace.taper(0.02)
 #       Filter each component. Bandpass flag gives a bandpass-butterworth filter
             trace.filter("bandpass",freqmin= c1, freqmax= c2,corners=2,zerophase=True)
 #       Data is only trimmed if the record is longer than 3 minutes.
@@ -220,11 +221,12 @@ class Wrapper:
 
 
         self.write_out(output_filename)
-        #print(f'Passing {output_filename} into Sheba.')
+        print(f'Passing {output_filename} into Sheba.')
         out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path, check=True)
         if debug:
             # print what sheba returns to stdout. useful for debugging the wrapping.
             print(out)
+        print('Gather result')
         result = collate_result(self.path, output_filename)
         self.update_sachdrs(output_filename, result)
         return result
@@ -279,6 +281,9 @@ class Wrapper:
             writer.write('0 \n')
             writer.write('0')
 
+        writer.close()
+        return
+
     def write_out(self,filename):
         """
         Function to write the component seismograms to SAC files to the SHEBA rundir.
@@ -290,6 +295,7 @@ class Wrapper:
             the output filename for each trace
         
         """
+        self.st.taper(0.02)
         for trace in self.st:
             ch = trace.stats.channel
             trace.write(f'{self.path}/{filename}.{ch}', format='SAC', byteorder=1)
@@ -406,8 +412,12 @@ class Wrapper:
             return
         else:
             result_nc = Dataset(f'{self.path}/{filename}_sheba_result.nc')
-            st = obspy.read(f'{self.path}/{filename}.?H?') 
-            st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?') 
+            try:
+                # st = obspy.read(f'{self.path}/{filename}.?H?') 
+                st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?') 
+            except:
+                # st = obspy.read(f'{self.path}/{filename}.?N?') 
+                st_corr = obspy.read(f'{self.path}/{filename}_corr.?N?') 
             fig = diagnostic_plot(self.st, st_corr, result_nc, self.event_time)
             fig.savefig(f'{self.path}/{filename}_shebapy_plot.png', dpi=500)
             plt.close(fig)
