@@ -328,7 +328,7 @@ class Wrapper:
                       'user2' : Windower.wend1, 'user3' : Windower.wend2}
             for trace in self.st:
                 trace.stats.sac.update(windows)
-            self.skip=False
+            self.skip = False
             # self.st.trim(self.event_time+windows['user0']-1, self.event_time+windows['user3']+1)
             return
 
