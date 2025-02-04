@@ -31,7 +31,7 @@ def diagnostic_plot(st, st_corr, result, event_time):
             output data corrected by SHEBA for splitting
         result : Dataset (netCDF4)
             dataset netCDF4 files pre read in
-        event_time : 
+        event_time :
     '''
 
     plt.close()
@@ -39,18 +39,20 @@ def diagnostic_plot(st, st_corr, result, event_time):
     gs = GridSpec(4, 6, figure=fig)
     # Input data
     ax1 = fig.add_subplot(gs[0,0:3])
-    _plot_traces(st, show_final_window=True, axes=ax1, event_time=event_time)
-    ax1.set_xlim([result.wbeg -1, result.wend + 1])
+    _plot_traces(st, show_final_window=True, axes=ax1,
+                 event_time=event_time, cmp_orientation='RT')
+    ax1.set_xlim([result.wbeg - 1, result.wend + 1])
     ax1.set_title(f'Input S. Event: {event_time}. Station: {result.station.strip()}', fontsize=12)
     # Corrected data
     ax2 = fig.add_subplot(gs[0,3:], sharey=ax1)
-    _plot_traces(st_corr, show_final_window=True, axes=ax2, event_time=event_time)
+    _plot_traces(st_corr, show_final_window=True, axes=ax2,
+                 event_time=event_time, cmp_orientation='RT')
     ax2.set_xlim([result.wbeg -1, result.wend + 1])
     ax2.set_title(f'Corrected S. $\phi_f = {result.fast:4.2f}\pm{result.dfast:4.2f}$, $\delta t = {result.tlag:4.3f}\pm{result.dtlag:4.3f}$')
-    # 
+    #
     ax3 = fig.add_subplot(gs[1, 0])
     _ppm(ax3, st, event_time)
-    
+
     ax4 = fig.add_subplot(gs[1, 1], sharex=ax3, sharey=ax3)
     _ppm(ax4, st_corr, event_time)
     ax4 = fig.add_subplot(gs[1:4, 3:6])
@@ -95,43 +97,52 @@ def diagnostic_plot(st, st_corr, result, event_time):
 
     return fig
 
-def _plot_traces(st, event_time, **kwargs):
+
+def _plot_traces(st, event_time, cmp_orientation='NE', **kwargs):
     '''
-    function to plot shear-wave traces 
-    
+    function to plot shear-wave traces
+
     Parameters:
     ----------
     st :
         obspy Stream conatining waveform data to plot
     '''
-    
     if 'axes' not in kwargs:
         # no axes provided so make our own
         fig, ax = plt.subplots(1, 1)
     else:
         ax = kwargs['axes']
-    
-    times = st[0].times(reftime=event_time)
-    ax.plot(times, st[0].data, label=st[0].stats.channel, color='dodgerblue')
-    ax.plot(times, st[1].data, label=st[1].stats.channel, color='darkorange')
-    
+
+    if cmp_orientation == 'RT':
+        st_plot = st.copy()
+        st_plot.rotate('NE->RT', back_azimuth=st[0].stats.sac['baz'])
+    else:
+        st_plot = st
+
+    times = st_plot[0].times(reftime=event_time)
+    ax.plot(times, st_plot[0].data, label=st_plot[0].stats.channel, color='dodgerblue')
+    ax.plot(times, st_plot[1].data, label=st_plot[1].stats.channel, color='darkorange')
+
     if 'show_window_range' in kwargs:
         # window range should be a list of [wbeg1 wend1 wbeg2 wend2]
         for marker in ['user0', 'user1', 'user2', 'user3']:
-            ax.axvline(x=st[0].stats.sac[marker], linewidth=1, color='black', linestyle='--')
-    
+            ax.axvline(x=st_plot[0].stats.sac[marker], linewidth=1, color='black',
+                       linestyle='--')
+
     if 'show_final_window' in kwargs:
-        ax.axvline(x=st[0].stats.sac['a'], linewidth=1, color='black', linestyle='-')
-        ax.axvline(x=st[0].stats.sac['f'], linewidth=1, color='black', linestyle='-')
-    
+        ax.axvline(x=st_plot[0].stats.sac['a'], linewidth=1, color='black',
+                   linestyle='-')
+        ax.axvline(x=st_plot[0].stats.sac['f'], linewidth=1, color='black',
+                   linestyle='-')
+
     # set axis label
     if 'units' not in kwargs:
-        kwargs['units'] = 's'     
-            
+        kwargs['units'] = 's'
+
     ax.set_xlabel(f'Time relative to origin ({kwargs["units"]})')
     ax.legend(framealpha=0.75)
-    
-    return 
+
+    return
 
 def _ppm(ax, st, event_time):
     st_plot = st.copy()
@@ -142,9 +153,8 @@ def _ppm(ax, st, event_time):
     ax.plot(trE.data, trN.data)
     ax.set_xlabel('East')
     ax.set_ylabel('North')
-    return 
+    return
 
-    
 if __name__ == '__main__':
     st = obspy.read('/Users/eart0593/Projects/SHARP/splitting/data/ML_gte_0/*/GB_MONM_20180420145936.*')
 

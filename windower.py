@@ -6,6 +6,7 @@ from scipy.signal import hilbert
 
 # from .plots import plot_traces
 
+
 class WindowPicker:
     """
     Picks a Window start/end range, for use with cluster analysis code
@@ -43,7 +44,7 @@ class WindowPicker:
         #     print(st[0].stats.starttime.julday)
         #     print(st)
         #     raise ValueError('Not enough traces in st')
-    
+
         self.tt = tt
         self.delta = st[0].stats.delta
 
@@ -52,8 +53,8 @@ class WindowPicker:
         else:
             self.tlag_max  = 4.0
         # make initial window ranges attributes
-        (self.wbeg1,self.wbeg2,self.wend1,self.wend2) = (wbeg1,wbeg2,wend1,wend2)
-        (self.x1,self.x2,self.x3,self.x4) = (wbeg1,wbeg2,wend1,wend2)
+        (self.wbeg1, self.wbeg2, self.wend1, self.wend2) = (wbeg1, wbeg2, wend1, wend2)
+        (self.x1, self.x2, self.x3, self.x4) = (wbeg1, wbeg2, wend1, wend2)
         # Base plot (before interactive stuff)
         self.fig = plt.figure(figsize = (10,8))
         plt.suptitle(f'Station {st[0].stats.station}, Event Time {event_time}')
@@ -61,7 +62,6 @@ class WindowPicker:
         #self.ax1 = plt.subplot(gs[0,:]) # Top Row, for fft plot
         self.ax2 = plt.subplot(gs[0,:]) # Middle Row, for window picking
         self.ax3 = plt.subplot(gs[1,:], sharex=self.ax2) # Bottom row, for envelopes
-        #self.plot_fft()
         # Add seismograms
         self.ax2.plot(self.st[0].times(reftime=event_time), self.st[0].data,label=st[0].stats.channel, color='darkorange')
         self.ax2.plot(self.st[1].times(reftime=event_time), self.st[1].data,label=st[1].stats.channel, color='dodgerblue')
@@ -86,17 +86,18 @@ class WindowPicker:
         self.pred_tt= self.ax2.axvline(self.tt, linewidth=1, color='k', visible=True)
 
         _, self.ydat = self.wbeg1line.get_data()
-        
+
         # set limits
         self.lim_max = max([self.st[0].data.max(), self.st[1].data.max()]) * 1.1
         self.lim_min = min([self.st[0].data.min(), self.st[1].data.min()]) * 1.1
         # self.ax1.set_aspect('equal')
         try:
-            self.ax2.set_ylim([self.lim_min,self.lim_max])
+            self.ax2.set_ylim([self.lim_min, self.lim_max])
         except ValueError:
             print('error setting ylim, plotting all')
-        self.ax2.set_xlim(0, 20 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
-        self.ax3.set_xlim(0,20) #max(self.t))
+        print(wbeg1, wend2)
+        self.ax2.set_xlim(wbeg1 - 1, wend2 + 1)
+        self.ax3.set_xlim(wbeg1 - 1, wend2 + 1)
         # self.ax2.set_xlim(tt-0.5,tt+1 )#max(self.t)) # Set ylim in relative time (from stsrt of stream )
         # self.ax3.set_xlim(tt-0.5,tt+1 ) #max(self.t))
         # Add some labels

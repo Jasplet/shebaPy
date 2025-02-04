@@ -140,7 +140,7 @@ class Wrapper:
             trace.stats.sac.cmpinc = 0
             trace.stats.sac.cmpaz = 0
 
-    def preprocess(self,c1=0.01,c2=0.5, trim=True):
+    def preprocess(self, c1=0.01, c2=0.5, trim=True):
         """
         Function to bandpass filter and trim the components
         Seismograms are trimmed so that they start 1 minute before the expected arrival 
@@ -148,24 +148,29 @@ class Wrapper:
         By default traces will be filtered between 0.01Hz-0.5Hz.
         Using an upper corner of 0.1Hz for SKS/SKKS is also common, 
         but can cut out high f signal (but also reduces noise)
-        
+
         Parameters
         ----------
         c1 : float, optional, default=0.01
             Lower corner frequency [Hz]
         c2 : float, optional, default=0.5
             Upper corner frequency [Hz]
- 
         """
         for trace in self.st:
 #       De-mean and detrend each component
-            trace.detrend(type='demean') #demeans the component
-            trace.detrend(type='simple') #De-trends component
+            trace.detrend(type='demean')
+            trace.detrend(type='simple')
             trace.taper(0.02)
-#       Filter each component. Bandpass flag gives a bandpass-butterworth filter
-            trace.filter("bandpass",freqmin= c1, freqmax= c2,corners=2,zerophase=True)
+#       Filter each component.
+#       Bandpass flag gives a bandpass-butterworth filter
+            trace.filter("bandpass",
+                         freqmin= c1,
+                         freqmax= c2,
+                         corners=2,
+                         zerophase=True)
 #       Data is only trimmed if the record is longer than 3 minutes.
-#       This is to ensure there is enough space for windowing, especially manual windowing. 
+#       This is to ensure there is enough space for windowing,
+#       especially manual windowing.
 #       This record length makes sense for teleseismic SKS, SKKS, ScS data
 #       but may need revising for other shear-wave data.
             if self.teleseismic & trim == True:
@@ -387,17 +392,31 @@ class Wrapper:
                                     'user1':self.wbeg, 'user2':self.wend, 
                                     'user3':self.wend})
         else:
-            if all (k in trace.stats.sac for k in ('user0','user1','user2','user3')) & self.teleseismic:
+            if all(k in trace.stats.sac for k in ('user0','user1','user2','user3')) & self.teleseismic:
                 user0 = trace.stats.sac['user0']
                 user1 = trace.stats.sac['user1']
                 user2 = trace.stats.sac['user2']
                 user3 = trace.stats.sac['user3']
             elif self.teleseismic:
-                user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=self.wbeg_pre_S, wend_post_S=self.wend_post_S, pick_tol=self.pick_tol)  
+                user0, user1, user2, user3 = auto_window(self.tt_rel,
+                                                         wbeg_pre_S=self.wbeg_pre_S,
+                                                         wend_post_S=self.wend_post_S,
+                                                         pick_tol=self.pick_tol)
             elif 't2' in trace.stats.sac:
-                user0, user1, user2, user3 = auto_window(trace.stats.sac['t2'], self.wbeg_pre_S, self.wend_post_S, pick_tol=self.pick_tol)
+                # catch is the S pick is broken/ exists as a field
+                # but isnt populated
+                if np.isnan(trace.stats.sac['t2']):
+                    user0, user1, user2, user3 = auto_window(self.tt_rel,
+                                                         self.wbeg_pre_S,
+                                                         self.wend_post_S,
+                                                         pick_tol=self.pick_tol)
+                else:
+                    user0, user1, user2, user3 = auto_window(trace.stats.sac['t2'],
+                                                             self.wbeg_pre_S,
+                                                             self.wend_post_S,
+                                                             pick_tol=self.pick_tol)
             else:
-                user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=self.wbeg_pre_S, wend_post_S=self.wend_post_S, pick_tol=self.pick_tol)  
+                user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=self.wbeg_pre_S, wend_post_S=self.wend_post_S, pick_tol=self.pick_tol)
 
             keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
             trace.stats.sac.update(keychain)
