@@ -14,7 +14,7 @@ import numpy as np
 import obspy
 
 
-def diagnostic_plot(st, st_corr, result, event_time):
+def diagnostic_plot(st_in, st_corr_in, result, event_time):
     """
     Produces a diagnostic plot for each shear-wave splitting measurment
 
@@ -34,6 +34,13 @@ def diagnostic_plot(st, st_corr, result, event_time):
     """
 
     plt.close()
+
+    # trim st, st_corr to 10% of window before and after
+    st = st_in.copy()
+    st.trim(event_time + result.wbeg * 0.9, event_time + result.wend * 1.1)
+    st_corr = st_corr_in.copy()
+    st_corr.trim(event_time + result.wbeg * 0.9, event_time + result.wend * 1.1)
+
     fig = plt.figure(layout="constrained", figsize=(13, 9))
     gs = GridSpec(6, 6, figure=fig)
     # Input data ZNE
@@ -44,6 +51,8 @@ def diagnostic_plot(st, st_corr, result, event_time):
         axes=ax1,
         event_time=event_time,
         cmp_orientation="NE",
+        wbeg=result.wbeg,
+        wend=result.wend,
     )
     ax1.set_xlim([result.wbeg * 0.95, result.wend * 1.05])
     time_str = event_time.strftime("%Y-%m-%d %H:%M:%S %Z")
@@ -60,6 +69,8 @@ def diagnostic_plot(st, st_corr, result, event_time):
         event_time=event_time,
         cmp_orientation="RT",
         spol=result.spol,
+        wbeg=result.wbeg,
+        wend=result.wend,
     )
     ax2.set_title(f"Input S. Radial-Transverse. Spol: {result.spol:4.2f}°")
     # Corrected data ZNE
@@ -70,6 +81,8 @@ def diagnostic_plot(st, st_corr, result, event_time):
         axes=ax3,
         event_time=event_time,
         cmp_orientation="NE",
+        wbeg=result.wbeg,
+        wend=result.wend,
     )
     fast_res = rf"$\phi_f = {result.fast:4.2f}\pm{result.dfast:4.2f}$°"
     dt_res = rf"$\delta t = {result.tlag:4.3f}\pm{result.dtlag:4.3f}$ s"
@@ -83,6 +96,8 @@ def diagnostic_plot(st, st_corr, result, event_time):
         event_time=event_time,
         cmp_orientation="RT",
         spol=result.spol,
+        wbeg=result.wbeg,
+        wend=result.wend,
     )
 
     ax4.set_title(f"Corrected S. Radial-Transverse. Spol: {result.spol:4.2f}°")
@@ -261,11 +276,28 @@ def _plot_traces(st, event_time, cmp_orientation="NE", **kwargs):
         else:
             st_plot.rotate(method="NE->RT", back_azimuth=st[0].stats.sac["baz"])
     else:
-        st_plot = st
+        st_plot = st.copy()
+
+    st_plot.trim(
+        event_time + 0.95 * kwargs["wbeg"],
+        event_time + 1.05 * kwargs["wend"],
+    )
 
     times = st_plot[0].times(reftime=event_time)
     ax.plot(times, st_plot[0].data, label=st_plot[0].stats.channel, color="dodgerblue")
     ax.plot(times, st_plot[1].data, label=st_plot[1].stats.channel, color="darkorange")
+    # trim to window
+
+    # set y axis limits
+    ylim = 1.1 * np.max(
+        [
+            st_plot[0].data.max(),
+            st_plot[1].data.max(),
+            abs(st_plot[0].data.min()),
+            abs(st_plot[1].data.min()),
+        ]
+    )
+    ax.set_ylim([-ylim, ylim])
 
     if "show_window_range" in kwargs:
         # window range should be a list of [wbeg1 wend1 wbeg2 wend2]
@@ -314,10 +346,11 @@ def _ppm(ax, st, event_time, **kwargs):
     ax.set_xlabel("East")
     ax.set_ylabel("North")
     # make x and y axes the same extent
-    axis_min = min(trE.data.min(), trN.data.min())
-    axis_max = max(trE.data.max(), trN.data.max())
-    ax.set_xlim([1.05 * axis_min, 1.05 * axis_max])
-    ax.set_ylim([1.05 * axis_min, 1.05 * axis_max])
+    axis_extent = 1.05 * max(
+        abs(trE.data.min()), abs(trN.data.min()), trE.data.max(), trN.data.max()
+    )
+    ax.set_xlim([-axis_extent, axis_extent])
+    ax.set_ylim([-axis_extent, axis_extent])
 
     return
 
