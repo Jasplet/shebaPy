@@ -17,21 +17,23 @@ from obspy.io.sac import SACTrace
 from windower import WindowPicker
 from plots import diagnostic_plot
 import matplotlib.pyplot as plt
+
 # from .plots import plot_traces, plot_pm
+
 
 class Wrapper:
     """
     Class that 'wraps' around SHEBA fortran routines.
-    
+
     Includes methods for pre-processing and windowing shear-wave data
-    
+
     Attributes
     ----------
     st :
         obspy Stream object that holds waveform data
     sacstats : dict
         metadata from SAC headers
-    station : str 
+    station : str
         Recording station code
     delta : float
         seismometer sample rate
@@ -45,108 +47,125 @@ class Wrapper:
         path to working directory for SHEBA
     Methods
     ----------
-    
-    
+
+
     """
-    def __init__(self,st, phase, teleseismic, rundir=None, **kwargs):
-        '''
+
+    def __init__(self, st, phase, teleseismic, rundir=None, **kwargs):
+        """
         Constructs Wrapper for a 3-component waveform
-        
+
         Parameters:
         ----------
-        st : 
+        st :
             obspy Stream object containing raw data
         phase : str
             seismic phase of interes
         rundir : str, optional, default=None
             path to run directory. if None current working directory is used
-        '''
+        """
         self.st = st
         self.sacstats = st[0].stats.sac
-        self.station = st[0].stats.station # station code
-        self.delta = st[0].stats.delta # sample rate of seismometer [s]
-        self.phase = phase # The shear-wave phase we are measuing splitting for!
-        self.teleseismic = teleseismic # flag for teleseimic v local mode
+        self.station = st[0].stats.station  # station code
+        self.delta = st[0].stats.delta  # sample rate of seismometer [s]
+        self.phase = phase  # The shear-wave phase we are measuing splitting for!
+        self.teleseismic = teleseismic  # flag for teleseimic v local mode
         self.fixed_window = False
         reftimes = []
         for trace in self.st:
-            trace.stats.sac.kstnm = '{:>8}'.format(trace.stats.sac.kstnm)
+            trace.stats.sac.kstnm = "{:>8}".format(trace.stats.sac.kstnm)
             self.fix_cmp_dir(trace)
             sactr = SACTrace.from_obspy_trace(trace)
             reftimes.append(sactr.reftime)
 
         if reftimes[0] == reftimes[1] == reftimes[2]:
-            if sactr.iztype == 'io':
+            if sactr.iztype == "io":
                 self.event_time = reftimes[0]
-            elif sactr.iztype == 'ib':
-                # Sac trace time is relative from start. 
-                # Assume this start this is EQ origin time 
-                print('Assuming file begin time == origin time')
+            elif sactr.iztype == "ib":
+                # Sac trace time is relative from start.
+                # Assume this start this is EQ origin time
+                print("Assuming file begin time == origin time")
                 self.event_time = reftimes[0]
             else:
-                raise ValueError('Unsupported sac reftime, convert to io')           
+                raise ValueError("Unsupported sac reftime, convert to io")
         else:
-            raise ValueError('SAC reference times are not equal - fix your data!')
-        
+            raise ValueError("SAC reference times are not equal - fix your data!")
+
         del sactr
-#       Formats Station name in headers so that it is 8 characters long,
-#       with emtpy character fill with whitespaces
+        #       Formats Station name in headers so that it is 8 characters long,
+        #       with emtpy character fill with whitespaces
         if teleseismic:
-            default_wind_param = {'wbeg_pre_S': 5, 'wend_post_S':10, 'pick_tol':1}
+            default_wind_param = {"wbeg_pre_S": 5, "wend_post_S": 10, "pick_tol": 1}
         else:
-            default_wind_param = {'wbeg_pre_S': 0.1, 'wend_post_S':0.2, 'pick_tol':0.05}
-            
-        if 'wbeg_pre_S' in kwargs:
-            self.wbeg_pre_S = kwargs['wbeg_pre_S']
-        else: 
-            self.wbeg_pre_S = default_wind_param['wbeg_pre_S']
+            default_wind_param = {
+                "wbeg_pre_S": 0.1,
+                "wend_post_S": 0.2,
+                "pick_tol": 0.05,
+            }
 
-        if 'wend_post_S' in kwargs:
-            self.wend_post_S = kwargs['wend_post_S']
+        if "wbeg_pre_S" in kwargs:
+            self.wbeg_pre_S = kwargs["wbeg_pre_S"]
         else:
-            self.wend_post_S = default_wind_param['wend_post_S']
-        if 'pick_tol' in kwargs:
-            self.pick_tol = kwargs['pick_tol']
-        else:
-            self.pick_tol = default_wind_param['pick_tol']
+            self.wbeg_pre_S = default_wind_param["wbeg_pre_S"]
 
-        check_phase_dist(phase, self.sacstats['gcarc'])
+        if "wend_post_S" in kwargs:
+            self.wend_post_S = kwargs["wend_post_S"]
+        else:
+            self.wend_post_S = default_wind_param["wend_post_S"]
+        if "pick_tol" in kwargs:
+            self.pick_tol = kwargs["pick_tol"]
+        else:
+            self.pick_tol = default_wind_param["pick_tol"]
+
+        check_phase_dist(phase, self.sacstats["gcarc"])
         check_evdp(trace)
         # if teleseismic:
         self.tt_utc, self.tt_rel = self.model_traveltimes()
-            
+
         # elif:
         #     self.tt_rel = st[0].stats.sac['t2']
         #     self.tt_utc = self.event_time + st[0].stats.sac['t2']
-                
+
         if rundir is None:
-            print('Setting rundir path to current working directory')
+            print("Setting rundir path to current working directory")
             self.path = os.getcwd()
         else:
             self.path = rundir
 
     def fix_cmp_dir(self, trace):
         """
-        Fixes the sac headers cmpinc, cmpaz for BHE,BHN, BHZ channels. If data is 
+        Fixes the sac headers cmpinc, cmpaz for BHE,BHN, BHZ channels. If data is
         downlaoded directly from the IRIS DMC then these SAC headers are missing
         """
-        if (trace.stats.channel == 'BHE') or (trace.stats.channel == 'HHE') or (trace.stats.channel == 'HNE'):
+        if (
+            (trace.stats.channel == "BHE")
+            or (trace.stats.channel == "HHE")
+            or (trace.stats.channel == "HNE")
+        ):
             trace.stats.sac.cmpinc = 90
             trace.stats.sac.cmpaz = 90
-        elif (trace.stats.channel == 'BHN') or (trace.stats.channel == 'HHN') or (trace.stats.channel == 'HNN'):
+        elif (
+            (trace.stats.channel == "BHN")
+            or (trace.stats.channel == "HHN")
+            or (trace.stats.channel == "HNN")
+        ):
             trace.stats.sac.cmpinc = 90
             trace.stats.sac.cmpaz = 0
-        elif (trace.stats.channel == 'BHZ') or (trace.stats.channel == 'HHZ')or (trace.stats.channel == 'HNZ'): 
+        elif (
+            (trace.stats.channel == "BHZ")
+            or (trace.stats.channel == "HHZ")
+            or (trace.stats.channel == "HNZ")
+        ):
             trace.stats.sac.cmpinc = 0
             trace.stats.sac.cmpaz = 0
 
     def preprocess(self, c1=0.01, c2=0.5, trim=True):
         """
         Function to bandpass filter and trim the components
-        Seismograms are trimmed so that they start 1 minute before the expected arrival 
+        Seismograms are trimmed so that they start 1 minute before the expected arrival
         and end 2 minutes after the arrival.
         By default traces will be filtered between 0.01Hz-0.5Hz.
-        Using an upper corner of 0.1Hz for SKS/SKKS is also common, 
+        Using an upper corner of 0.1Hz for SKS/SKKS is also common,
         but can cut out high f signal (but also reduces noise)
 
         Parameters
@@ -157,39 +176,42 @@ class Wrapper:
             Upper corner frequency [Hz]
         """
         for trace in self.st:
-#       De-mean and detrend each component
-            trace.detrend(type='demean')
-            trace.detrend(type='simple')
+            #       De-mean and detrend each component
+            trace.detrend(type="demean")
+            trace.detrend(type="simple")
             trace.taper(0.02)
-#       Filter each component.
-#       Bandpass flag gives a bandpass-butterworth filter
-            trace.filter("bandpass",
-                         freqmin= c1,
-                         freqmax= c2,
-                         corners=2,
-                         zerophase=True)
-#       Data is only trimmed if the record is longer than 3 minutes.
-#       This is to ensure there is enough space for windowing,
-#       especially manual windowing.
-#       This record length makes sense for teleseismic SKS, SKKS, ScS data
-#       but may need revising for other shear-wave data.
+            #       Filter each component.
+            #       Bandpass flag gives a bandpass-butterworth filter
+            trace.filter("bandpass", freqmin=c1, freqmax=c2, corners=2, zerophase=True)
+            #       Data is only trimmed if the record is longer than 3 minutes.
+            #       This is to ensure there is enough space for windowing,
+            #       especially manual windowing.
+            #       This record length makes sense for teleseismic SKS, SKKS, ScS data
+            #       but may need revising for other shear-wave data.
             if self.teleseismic & trim == True:
-                t1 = (self.tt_utc - 60) #I.e A minute before the arrival
-                t2 = (self.tt_utc + 120) #I.e Two minutes after the arrival
-                trace.trim(t1,t2)
+                t1 = self.tt_utc - 60  # I.e A minute before the arrival
+                t2 = self.tt_utc + 120  # I.e Two minutes after the arrival
+                trace.trim(t1, t2)
             elif trim:
-                t1 = (self.tt_utc-5)
-                t2 = (self.tt_utc+5)
-                trace.trim(t1,t2)
+                t1 = self.tt_utc - 5
+                t2 = self.tt_utc + 5
+                trace.trim(t1, t2)
             else:
-                print('Not trimming')
-#               Initialise Windows
+                print("Not trimming")
+            #               Initialise Windows
             self.initialise_windows(trace)
 
-
-    def measure_splitting(self,output_filename, sheba_exec_path, window=False, nwind=10, debug=False, **kwargs):
+    def measure_splitting(
+        self,
+        output_filename,
+        sheba_exec_path,
+        window=False,
+        nwind=10,
+        debug=False,
+        **kwargs,
+    ):
         """
-        Measures Shear-wave splitting using Sheba. 
+        Measures Shear-wave splitting using Sheba.
 
         Parameters
         ----------
@@ -203,42 +225,48 @@ class Wrapper:
             number of window start/ends to consider in SHEBA cluster analysis. nwind=10 tries 100 combinations
         debug : bool, optional, default=False
             prints out SHEBA stdout when True. Default is False
-            
+
         Returns:
             result : dict
                 Shear-wave splitting measurement results and metadata
         """
-        if 'tlag_max' in kwargs:
-            tlag_max = kwargs['tlag_max']
+        if "tlag_max" in kwargs:
+            tlag_max = kwargs["tlag_max"]
         else:
-            tlag_max = 4.0 #default
+            tlag_max = 4.0  # default
         if window:
             self.window_event(tlag_max=tlag_max)
         if self.skip:
             return
-            
-        self.gen_infile(output_filename, nwind=nwind, tlag_max=kwargs['tlag_max'])
-        if self.st[0].stats.delta*40 >= tlag_max:
-            intp_delta = self.st[0].stats.delta / 2
-            print(f'Sheba will autoset tlag max to {self.st[0].stats.delta*40}')
-            print(f'Interpolating to double sample frequency to {1/intp_delta:4.2f} from {1/self.st[0].stats.delta:4.2f}')
-            self.st.interpolate(1/intp_delta)
 
+        self.gen_infile(output_filename, nwind=nwind, tlag_max=kwargs["tlag_max"])
+        if self.st[0].stats.delta * 40 >= tlag_max:
+            intp_delta = self.st[0].stats.delta / 2
+            print(f"Sheba will autoset tlag max to {self.st[0].stats.delta*40}")
+            print(
+                f"Interpolating to double sample frequency to {1/intp_delta:4.2f} from {1/self.st[0].stats.delta:4.2f}"
+            )
+            self.st.interpolate(1 / intp_delta)
 
         self.write_out(output_filename)
-        print(f'Passing {output_filename} into Sheba.')
-        out = sub.run(f'{sheba_exec_path}/sheba_exec', capture_output=True, cwd=self.path, check=True)
+        print(f"Passing {output_filename} into Sheba.")
+        out = sub.run(
+            f"{sheba_exec_path}/sheba_exec",
+            capture_output=True,
+            cwd=self.path,
+            check=True,
+        )
         if debug:
             # print what sheba returns to stdout. useful for debugging the wrapping.
             print(out)
-        print('Gather result')
+        print("Gather result")
         result = collate_result(self.path, output_filename)
         self.update_sachdrs(output_filename, result)
         return result
-        
+
     def update_sachdrs(self, filename, result):
-        '''
-        Updates the sac headers of traces to add measured windows 
+        """
+        Updates the sac headers of traces to add measured windows
         Parameters
         ----------
         result : TYPE
@@ -248,84 +276,94 @@ class Wrapper:
         -------
         None.
 
-        '''
+        """
         for trace in self.st:
             ch = trace.stats.channel
-            trace.stats.sac.update({'a':result['wbeg'], 'f':result['wend']})
-            trace.write(f'{self.path}/{filename}.{ch}', format='SAC', byteorder=1)
-            #Also update corrected st
-            tr_corr = obspy.read(f'{self.path}/{filename}_corr.{ch}')   
+            trace.stats.sac.update({"a": result["wbeg"], "f": result["wend"]})
+            trace.write(f"{self.path}/{filename}.{ch}", format="SAC", byteorder=1)
+            # Also update corrected st
+            tr_corr = obspy.read(f"{self.path}/{filename}_corr.{ch}")
             tr_corr[0].stats.channel = ch
-            tr_corr[0].stats.sac.update({'a':result['wbeg'], 'f':result['wend']})
-            tr_corr.write(f'{self.path}/{filename}_corr.{ch}', format='SAC', byteorder=1)
-                
-    def gen_infile(self,filename, nwind=10, tlag_max=4.0):
-        '''
+            tr_corr[0].stats.sac.update({"a": result["wbeg"], "f": result["wend"]})
+            tr_corr.write(
+                f"{self.path}/{filename}_corr.{ch}", format="SAC", byteorder=1
+            )
+
+    def gen_infile(self, filename, nwind=10, tlag_max=4.0):
+        """
         Generates the input file needed for the Fortran SHEBA routines.
-        
+
         Parameters
         ----------
         filename : str
-            name of waveform data for sheba to read in 
+            name of waveform data for sheba to read in
         nwind : int, optional, default=10
             number of analysis window starts/ends to use in cluster analysis
         tlag_max : flat, optional, default=4.0
             maximum allowable delay time in grid search
-            
-        '''
-        with open(f'{self.path}/sheba.in','w') as writer:
-            writer.write('SHEBA.IN \n')
-            writer.write(f'{filename} \n') # Name of pre-processed data
+
+        """
+        with open(f"{self.path}/sheba.in", "w") as writer:
+            writer.write("SHEBA.IN \n")
+            writer.write(f"{filename} \n")  # Name of pre-processed data
             for trace in self.st:
-                writer.write('{} \n'.format(trace.stats.channel))
-            # 1 Specifies Eigenvalue minimisation, 
+                writer.write("{} \n".format(trace.stats.channel))
+            # 1 Specifies Eigenvalue minimisation,
             # replace with spol if transverse minimisation is desired (not supported here)
-            writer.write('1 \n')
-            writer.write(f'{nwind} {nwind} \n')
-            writer.write(f'{tlag_max} \n') # sets max tlag in gridsearch
-            writer.write('0 \n')
-            writer.write('0')
+            writer.write("1 \n")
+            writer.write(f"{nwind} {nwind} \n")
+            writer.write(f"{tlag_max} \n")  # sets max tlag in gridsearch
+            writer.write("0 \n")
+            writer.write("0")
 
         writer.close()
         return
 
-    def write_out(self,filename):
+    def write_out(self, filename):
         """
         Function to write the component seismograms to SAC files to the SHEBA rundir.
         The rundir is set by self.path.
-        
+
         Parameters
         -----------
         filename : str
             the output filename for each trace
-        
+
         """
         self.st.taper(0.02)
         for trace in self.st:
             ch = trace.stats.channel
-            trace.write(f'{self.path}/{filename}.{ch}', format='SAC', byteorder=1)
+            trace.write(f"{self.path}/{filename}.{ch}", format="SAC", byteorder=1)
 
     def window_event(self, **kwargs):
-        '''
-        Function that enables manual picking of window start/end ranges by initialising a 
+        """
+        Function that enables manual picking of window start/end ranges by initialising a
         WindowPicker object
-        '''
+        """
         # Windowing code
-        Windower = WindowPicker(self.st,
-                                self.st[0].stats.sac['user0'], self.st[0].stats.sac['user1'],
-                                self.st[0].stats.sac['user2'], self.st[0].stats.sac['user3'],
-                                self.tt_rel,
-                                self.event_time,
-                                tlag_max=kwargs['tlag_max'])
+        Windower = WindowPicker(
+            self.st,
+            self.st[0].stats.sac["user0"],
+            self.st[0].stats.sac["user1"],
+            self.st[0].stats.sac["user2"],
+            self.st[0].stats.sac["user3"],
+            self.tt_rel,
+            self.event_time,
+            tlag_max=kwargs["tlag_max"],
+        )
 
         if Windower.wbeg1 is None:
-            print('Skipping event as it is poor quality!')
+            print("Skipping event as it is poor quality!")
             self.skip = True
-            return 
+            return
         else:
             print("Windower Closed, adjusting window ranges")
-            windows = {'user0' : Windower.wbeg1, 'user1' : Windower.wbeg2,
-                      'user2' : Windower.wend1, 'user3' : Windower.wend2}
+            windows = {
+                "user0": Windower.wbeg1,
+                "user1": Windower.wbeg2,
+                "user2": Windower.wend1,
+                "user3": Windower.wend2,
+            }
             for trace in self.st:
                 trace.stats.sac.update(windows)
             self.skip = False
@@ -335,7 +373,7 @@ class Wrapper:
     def model_traveltimes(self):
         """
         Uses TauP to predict phase traveltime.
-        
+
         Returns
         ----------
         tt_utc :
@@ -343,196 +381,252 @@ class Wrapper:
         traveltime :
             predicted arrival time as seconds after event origin time
         """
-        if ('t1' in self.sacstats) & (self.phase == 'SKS'):
+        if ("t1" in self.sacstats) & (self.phase == "SKS"):
             # pick exists and is stored in sac headers
-            print('Use existing pick in t1')
-            traveltime = self.sacstats['t1'] #+ self.sacstats['o']
-        elif ('t2' in self.sacstats) & (self.phase == 'S'):
-            print('Use existing pick in t2')
-            if np.isnan(self.sacstats['t2']):
-                print('S pick in header is busted, making rough guess')
-                traveltime = self.sacstats['dist'] / 3.0
-            else: 
-                traveltime = self.sacstats['t2'] #+ self.sacstats['o']
+            print("Use existing pick in t1")
+            traveltime = self.sacstats["t1"]  # + self.sacstats['o']
+        elif ("t2" in self.sacstats) & (self.phase == "S"):
+            print("Use existing pick in t2")
+            if np.isnan(self.sacstats["t2"]):
+                print("S pick in header is busted, making rough guess")
+                traveltime = self.sacstats["dist"] / 3.0
+            else:
+                traveltime = self.sacstats["t2"]  # + self.sacstats['o']
 
         else:
-            print(f'Use TauP to predict {self.phase} arrival time') 
+            print(f"Use TauP to predict {self.phase} arrival time")
             model = TauPyModel(model="iasp91")
-            tt = model.get_travel_times((self.sacstats['evdp']),
-                                         self.sacstats['gcarc'],
-                                         [self.phase])
-            
+            tt = model.get_travel_times(
+                (self.sacstats["evdp"]), self.sacstats["gcarc"], [self.phase]
+            )
+
             if len(tt) == 0:
-                print('Taup failed (likelyt becuase distnace is too small')
-                print('Making a back-of-the-envelope guess using vs = 1.5 km/s')
-                traveltime = self.sacstats['dist'] / 1.5
-                print(f'{traveltime:4.2f}')
+                print("Taup failed (likely because distance is too small")
+                print("Making a back-of-the-envelope guess using vs = 1.5 km/s")
+                traveltime = (
+                    np.sqrt(self.sacstats["dist"] ** 2 + self.sacstats["evdp"] ** 2)
+                    / 1.5
+                )
+                print(
+                    f"Est traveltime {traveltime:4.2f}. This is a guesstimate using a straight line ray path!"
+                )
+                print(
+                    f"Distance: {self.sacstats['dist']}, EVDP: {self.sacstats['evdp']}"
+                )
+                print(
+                    f"Ray path distance: {np.sqrt(self.sacstats['dist']**2 + self.sacstats['evdp']**2)}km"
+                )
             else:
                 traveltime = tt[0].time
 
-        tt_utc =  self.event_time + traveltime
+        tt_utc = self.event_time + traveltime
 
-        print(f'Depth: {self.sacstats["evdp"]}, Epicentral distance: {self.sacstats["gcarc"]}')
+        print(
+            f'Depth: {self.sacstats["evdp"]}, Epicentral distance: {self.sacstats["gcarc"]}'
+        )
         print(tt_utc)
         print(traveltime)
         return tt_utc, traveltime
 
     def initialise_windows(self, trace):
-        '''
+        """
         Checks for the presence of analysis window in trace SAC headers (user0-3).
         If they are not present default values are initialised around the predicted arrival time
-        
+
         Parameters:
         ----------
-        trace : 
+        trace :
             obspy Trace object to test
-        '''
+        """
         if self.fixed_window:
-            trace.stats.sac.update({'a':self.wbeg, 'f':self.wend, 'user0':self.wbeg,
-                                    'user1':self.wbeg, 'user2':self.wend, 
-                                    'user3':self.wend})
+            trace.stats.sac.update(
+                {
+                    "a": self.wbeg,
+                    "f": self.wend,
+                    "user0": self.wbeg,
+                    "user1": self.wbeg,
+                    "user2": self.wend,
+                    "user3": self.wend,
+                }
+            )
         else:
-            if all(k in trace.stats.sac for k in ('user0','user1','user2','user3')) & self.teleseismic:
-                user0 = trace.stats.sac['user0']
-                user1 = trace.stats.sac['user1']
-                user2 = trace.stats.sac['user2']
-                user3 = trace.stats.sac['user3']
+            if (
+                all(k in trace.stats.sac for k in ("user0", "user1", "user2", "user3"))
+                & self.teleseismic
+            ):
+                user0 = trace.stats.sac["user0"]
+                user1 = trace.stats.sac["user1"]
+                user2 = trace.stats.sac["user2"]
+                user3 = trace.stats.sac["user3"]
             elif self.teleseismic:
-                user0, user1, user2, user3 = auto_window(self.tt_rel,
-                                                         wbeg_pre_S=self.wbeg_pre_S,
-                                                         wend_post_S=self.wend_post_S,
-                                                         pick_tol=self.pick_tol)
-            elif 't2' in trace.stats.sac:
+                user0, user1, user2, user3 = auto_window(
+                    self.tt_rel,
+                    wbeg_pre_S=self.wbeg_pre_S,
+                    wend_post_S=self.wend_post_S,
+                    pick_tol=self.pick_tol,
+                )
+            elif "t2" in trace.stats.sac:
                 # catch is the S pick is broken/ exists as a field
                 # but isnt populated
-                if np.isnan(trace.stats.sac['t2']):
-                    user0, user1, user2, user3 = auto_window(self.tt_rel,
-                                                         self.wbeg_pre_S,
-                                                         self.wend_post_S,
-                                                         pick_tol=self.pick_tol)
+                if np.isnan(trace.stats.sac["t2"]):
+                    user0, user1, user2, user3 = auto_window(
+                        self.tt_rel,
+                        self.wbeg_pre_S,
+                        self.wend_post_S,
+                        pick_tol=self.pick_tol,
+                    )
                 else:
-                    user0, user1, user2, user3 = auto_window(trace.stats.sac['t2'],
-                                                             self.wbeg_pre_S,
-                                                             self.wend_post_S,
-                                                             pick_tol=self.pick_tol)
+                    user0, user1, user2, user3 = auto_window(
+                        trace.stats.sac["t2"],
+                        self.wbeg_pre_S,
+                        self.wend_post_S,
+                        pick_tol=self.pick_tol,
+                    )
             else:
-                user0, user1, user2, user3 = auto_window(self.tt_rel, wbeg_pre_S=self.wbeg_pre_S, wend_post_S=self.wend_post_S, pick_tol=self.pick_tol)
+                user0, user1, user2, user3 = auto_window(
+                    self.tt_rel,
+                    wbeg_pre_S=self.wbeg_pre_S,
+                    wend_post_S=self.wend_post_S,
+                    pick_tol=self.pick_tol,
+                )
 
-            keychain = {'user0':user0,'user1':user1,'user2':user2,'user3':user3}
+            keychain = {"user0": user0, "user1": user1, "user2": user2, "user3": user3}
             trace.stats.sac.update(keychain)
 
         return
 
     def plot_result(self, result_nc, filename):
-        '''
+        """
         Creates a diagnostic plot
-        '''
+        """
         if self.skip:
             return
         else:
-            result_nc = Dataset(f'{self.path}/{filename}_sheba_result.nc')
+            result_nc = Dataset(f"{self.path}/{filename}_sheba_result.nc")
             try:
-                # st = obspy.read(f'{self.path}/{filename}.?H?') 
-                st_corr = obspy.read(f'{self.path}/{filename}_corr.?H?') 
+                # st = obspy.read(f'{self.path}/{filename}.?H?')
+                st_corr = obspy.read(f"{self.path}/{filename}_corr.?H?")
             except:
-                # st = obspy.read(f'{self.path}/{filename}.?N?') 
-                st_corr = obspy.read(f'{self.path}/{filename}_corr.?N?') 
+                # st = obspy.read(f'{self.path}/{filename}.?N?')
+                st_corr = obspy.read(f"{self.path}/{filename}_corr.?N?")
             fig = diagnostic_plot(self.st, st_corr, result_nc, self.event_time)
-            fig.savefig(f'{self.path}/{filename}_shebapy_plot.png', dpi=500)
+            fig.savefig(f"{self.path}/{filename}_shebapy_plot.png", dpi=500)
             plt.close(fig)
 
+
 def collate_result(path=None, fname=None, full_file=None):
-        '''
-        Collates meausurement results from SHEBA, allowing them to be used by other functons
-        
-        Parameters
-        ----------  
-        path : str
-            path to run directory with NetCDFs result files to read.
+    """
+    Collates meausurement results from SHEBA, allowing them to be used by other functons
 
-        fname : str
-            output filestem used by SHEBA
-        
-        Returns
-        ----------
-        result : dict 
-            Shear-wave splitting measurement results and metadata
-        '''
-        if full_file is None:
-            raw_result = Dataset(f'{path}/{fname}_sheba_result.nc')
-        elif (path is None) and (fname is None):
-            print(full_file)
-            raw_result = Dataset(full_file)
-        # print('Best fitting result is')
-        # print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
-        # print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
+    Parameters
+    ----------
+    path : str
+        path to run directory with NetCDFs result files to read.
 
-        result = {'station':raw_result.station.strip(),
-                'event_time': obspy.UTCDateTime(f'{raw_result.zdate}T{raw_result.ztime}'),
-                'stla':raw_result.stla, 'stlo':raw_result.stlo,
-                'evla':raw_result.evla, 'evlo':raw_result.evlo, 'evdp':raw_result.evdp,
-                'gcdist':raw_result.gcarc, 'azi':raw_result.az, 
-                'bazi':raw_result.baz, 'spol':raw_result.spol,
-                'wbeg':raw_result.wbeg, 'wend':raw_result.wend, 
-                'phi_from_N':raw_result.fast, 'dphi':raw_result.dfast,
-                'lag_time':raw_result.tlag, 'dtlag':raw_result.dtlag,
-                'SI(Pa)':raw_result.intensity_estimated,
-                'SI(Pr)':raw_result.intensity, 'Qw':raw_result.qfactor,
-                'eigorig':raw_result.eigrat_orig, 'eigcorr': raw_result.eigrat_corr,
-                'snr':raw_result.snr, 'ndf':raw_result.ndf}
-        return result
+    fname : str
+        output filestem used by SHEBA
+
+    Returns
+    ----------
+    result : dict
+        Shear-wave splitting measurement results and metadata
+    """
+    if full_file is None:
+        raw_result = Dataset(f"{path}/{fname}_sheba_result.nc")
+    elif (path is None) and (fname is None):
+        print(full_file)
+        raw_result = Dataset(full_file)
+    # print('Best fitting result is')
+    # print(f'Fast direction =  {raw_result.fast} +/- {raw_result.dfast}')
+    # print(f'Delay time = {raw_result.tlag} +/- {raw_result.dtlag}')
+
+    result = {
+        "station": raw_result.station.strip(),
+        "event_time": obspy.UTCDateTime(f"{raw_result.zdate}T{raw_result.ztime}"),
+        "stla": raw_result.stla,
+        "stlo": raw_result.stlo,
+        "evla": raw_result.evla,
+        "evlo": raw_result.evlo,
+        "evdp": raw_result.evdp,
+        "gcdist": raw_result.gcarc,
+        "azi": raw_result.az,
+        "bazi": raw_result.baz,
+        "spol": raw_result.spol,
+        "wbeg": raw_result.wbeg,
+        "wend": raw_result.wend,
+        "phi_from_N": raw_result.fast,
+        "dphi": raw_result.dfast,
+        "lag_time": raw_result.tlag,
+        "dtlag": raw_result.dtlag,
+        "SI(Pa)": raw_result.intensity_estimated,
+        "SI(Pr)": raw_result.intensity,
+        "Qw": raw_result.qfactor,
+        "eigorig": raw_result.eigrat_orig,
+        "eigcorr": raw_result.eigrat_corr,
+        "snr": raw_result.snr,
+        "ndf": raw_result.ndf,
+    }
+    return result
+
 
 def check_evdp(trace):
-    '''
+    """
     Tests the event depth in the trace SAC headers to make sure it is a sensible value
-    
+
     Parameters:
     ----------
-    trace : 
-        obspy Trace object to test    
-    '''
+    trace :
+        obspy Trace object to test
+    """
     evdp = trace.stats.sac.evdp
     if trace.stats.sac.evdp >= 1000:
-        trace.stats.sac({'evdp':evdp/1000})
-        raise Warning('Event depth is greater than 1000km! EVDP may be in meters')
+        trace.stats.sac({"evdp": evdp / 1000})
+        raise Warning("Event depth is greater than 1000km! EVDP may be in meters")
     elif trace.stats.sac.evdp == 0:
-        raise ValueError('Event depth is 0km!')
+        raise ValueError("Event depth is 0km!")
+
 
 def check_phase_dist(phase, gcarc):
     """
     Function to test if the given phase is actually measureable
-    
+
     Parameters
     ----------
-    phase : str 
+    phase : str
         seismic phase to measure
     gcarc : float
         great circle distance between earthquake and the recording station
     """
-    if phase == 'SKS':
+    if phase == "SKS":
         if gcarc > 145.0:
-            raise ValueError(f'Event-Station distance {gcarc} is greater than 145, SKS not visible/reliable.')
-    elif phase == 'SKKS':
-        if (gcarc < 105.0) or (gcarc > 145.0) :
-            raise ValueError(f'Event-Station distance {gcarc} outside of acceptable range of 105-145 for SKKS')
-    elif phase == 'ScS':
+            raise ValueError(
+                f"Event-Station distance {gcarc} is greater than 145, SKS not visible/reliable."
+            )
+    elif phase == "SKKS":
+        if (gcarc < 105.0) or (gcarc > 145.0):
+            raise ValueError(
+                f"Event-Station distance {gcarc} outside of acceptable range of 105-145 for SKKS"
+            )
+    elif phase == "ScS":
         if gcarc > 95.0:
-            raise ValueError(f'Event-Station distance {gcarc} greater than acceptable distance of 95 deg for ScS')
-    elif phase == 'Synth':
-        print('Skip test for synthetics')
+            raise ValueError(
+                f"Event-Station distance {gcarc} greater than acceptable distance of 95 deg for ScS"
+            )
+    elif phase == "Synth":
+        print("Skip test for synthetics")
     else:
-        print(f'Phase {phase} not ScS, SKS or SKKS. Not checking!')
+        print(f"Phase {phase} not ScS, SKS or SKKS. Not checking!")
+
 
 def auto_window(S_pick, wbeg_pre_S=0.1, wend_post_S=0.2, pick_tol=0.05):
-        '''
-        Automatically window traces based on an assumed S pick
-        
-        Assumes S pick is in t2 in SAC header
-        '''
-        wbeg1 = S_pick - pick_tol - wbeg_pre_S
-        wbeg2 = S_pick - pick_tol
-        wend1 = S_pick + pick_tol + wend_post_S
-        wend2 = S_pick + pick_tol + wend_post_S + (wbeg2 - wbeg1)
+    """
+    Automatically window traces based on an assumed S pick
 
-        return wbeg1, wbeg2, wend1, wend2
+    Assumes S pick is in t2 in SAC header
+    """
+    wbeg1 = S_pick - pick_tol - wbeg_pre_S
+    wbeg2 = S_pick - pick_tol
+    wend1 = S_pick + pick_tol + wend_post_S
+    wend2 = S_pick + pick_tol + wend_post_S + (wbeg2 - wbeg1)
 
+    return wbeg1, wbeg2, wend1, wend2
