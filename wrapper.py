@@ -404,8 +404,7 @@ class Wrapper:
                 print("Taup failed (likely because distance is too small")
                 print("Making a back-of-the-envelope guess using vs = 1.5 km/s")
                 traveltime = (
-                    np.sqrt(self.sacstats["dist"] ** 2 + self.sacstats["evdp"] ** 2)
-                    / 1.5
+                    np.sqrt(self.sacstats["dist"] ** 2 + self.sacstats["evdp"] ** 2) / 1
                 )
                 print(
                     f"Est traveltime {traveltime:4.2f}. This is a guesstimate using a straight line ray path!"
